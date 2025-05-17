@@ -1,18 +1,10 @@
 package com.digital.mecommerces.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Id;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Column;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.JoinColumn;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "usuario")
 public class Usuario {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "usuario_id", nullable = false, columnDefinition = "BIGINT")
@@ -28,19 +20,18 @@ public class Usuario {
     private String password;
 
     @ManyToOne
-    @JoinColumn(name = "tipo_id", nullable = false)
-    private Tipo tipo;
+    @JoinColumn(name = "rol_id", nullable = false)
+    private RolUsuario rol;
 
     // Constructor vacío requerido para JPA
-    public Usuario() {
-    }
+    public Usuario() {}
 
     // Constructor con parámetros
-    public Usuario(String usuarioNombre, String email, String password, Tipo tipo) {
+    public Usuario(String usuarioNombre, String email, String password, RolUsuario rol) {
         this.usuarioNombre = usuarioNombre;
         this.email = email;
         this.password = password;
-        this.tipo = tipo;
+        this.rol = rol;
     }
 
     // Getters y Setters
@@ -76,11 +67,11 @@ public class Usuario {
         this.password = password;
     }
 
-    public Tipo getTipo() {
-        return tipo;
+    public RolUsuario getRol() {
+        return rol;
     }
 
-    public void setTipo(Tipo tipo) {
-        this.tipo = tipo;
+    public void setRol(RolUsuario rol) {
+        this.rol = rol;
     }
 }

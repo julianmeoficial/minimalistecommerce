@@ -7,7 +7,6 @@ import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
 
 public class ProductoDTO {
-
     private Long productoId;
 
     @NotBlank(message = "El nombre del producto es obligatorio")
@@ -23,8 +22,8 @@ public class ProductoDTO {
     @PositiveOrZero(message = "El stock debe ser mayor o igual a cero")
     private Integer stock;
 
-    @NotNull(message = "El tipo de producto es obligatorio")
-    private Long tipoId;
+    @NotNull(message = "La categoría del producto es obligatoria")
+    private Long categoriaId;
 
     @NotNull(message = "El vendedor es obligatorio")
     private Long vendedorId;
@@ -32,8 +31,7 @@ public class ProductoDTO {
     private List<ProductoImagenDTO> imagenes;
 
     // Constructor vacío
-    public ProductoDTO() {
-    }
+    public ProductoDTO() {}
 
     // Getters y Setters
     public Long getProductoId() {
@@ -76,12 +74,12 @@ public class ProductoDTO {
         this.stock = stock;
     }
 
-    public Long getTipoId() {
-        return tipoId;
+    public Long getCategoriaId() {
+        return categoriaId;
     }
 
-    public void setTipoId(Long tipoId) {
-        this.tipoId = tipoId;
+    public void setCategoriaId(Long categoriaId) {
+        this.categoriaId = categoriaId;
     }
 
     public Long getVendedorId() {

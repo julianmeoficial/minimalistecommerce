@@ -10,21 +10,21 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
 
+import jakarta.annotation.PostConstruct;
 import java.security.Key;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtTokenProvider {
-
-    @Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesShouldBeChangedInProduction}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}") // 24 horas en milisegundos
+    @Value("${jwt.expiration}")
     private long jwtExpirationInMs;
 
     private final UserDetailsService userDetailsService;
@@ -32,7 +32,12 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
-        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        // No inicializar key aquí
+    }
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
     }
 
     // Generar token
@@ -49,10 +54,10 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(username)
-                .claim("roles", roles)  // Agrega roles al token
+                .claim("roles", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)
                 .compact();
     }
 
@@ -87,3 +92,4 @@ public class JwtTokenProvider {
                 .getBody();
     }
 }
+

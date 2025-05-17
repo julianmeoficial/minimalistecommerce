@@ -6,14 +6,16 @@ public class ErrorDetails {
     private LocalDateTime timestamp;
     private String message;
     private String errorCode;
+    private String details;
 
     public ErrorDetails() {
     }
 
-    public ErrorDetails(LocalDateTime timestamp, String message, String errorCode) {
+    public ErrorDetails(LocalDateTime timestamp, String message, String errorCode, String details) {
         this.timestamp = timestamp;
         this.message = message;
         this.errorCode = errorCode;
+        this.details = details;
     }
 
     // Getters y setters
@@ -39,5 +41,13 @@ public class ErrorDetails {
 
     public void setErrorCode(String errorCode) {
         this.errorCode = errorCode;
+    }
+
+    public String getDetails() {
+        return details;
+    }
+
+    public void setDetails(String details) {
+        this.details = details;
     }
 }

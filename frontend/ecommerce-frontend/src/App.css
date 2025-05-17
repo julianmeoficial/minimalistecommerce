@@ -1,0 +1,41 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* Breakpoints para diferentes tamaños de pantalla */
+@media (max-height: 768px) {
+  .card {
+    min-height: 250px;
+  }
+
+  main {
+    max-height: calc(100vh - 200px);
+  }
+}
+
+@media (max-height: 600px) {
+  .card {
+    min-height: 200px;
+  }
+
+  .loader-title {
+    font-size: 2rem;
+  }
+
+  .loader-subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  main {
+    max-height: calc(100vh - 180px);
+  }
+}

@@ -1,22 +1,12 @@
 package com.digital.mecommerces.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Id;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Column;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.CascadeType;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "producto")
 public class Producto {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "producto_id", nullable = false, columnDefinition = "BIGINT")
@@ -35,8 +25,8 @@ public class Producto {
     private Integer stock;
 
     @ManyToOne
-    @JoinColumn(name = "tipo_id", nullable = false)
-    private Tipo tipo;
+    @JoinColumn(name = "categoria_id", nullable = false)
+    private CategoriaProducto categoria;
 
     @ManyToOne
     @JoinColumn(name = "vendedor_id", nullable = false)
@@ -46,16 +36,16 @@ public class Producto {
     private List<ProductoImagen> imagenes = new ArrayList<>();
 
     // Constructor vacío
-    public Producto() {
-    }
+    public Producto() {}
 
     // Constructor con parámetros
-    public Producto(String productoNombre, String descripcion, Double precio, Integer stock, Tipo tipo, Usuario vendedor) {
+    public Producto(String productoNombre, String descripcion, Double precio,
+                    Integer stock, CategoriaProducto categoria, Usuario vendedor) {
         this.productoNombre = productoNombre;
         this.descripcion = descripcion;
         this.precio = precio;
         this.stock = stock;
-        this.tipo = tipo;
+        this.categoria = categoria;
         this.vendedor = vendedor;
     }
 
@@ -100,12 +90,12 @@ public class Producto {
         this.stock = stock;
     }
 
-    public Tipo getTipo() {
-        return tipo;
+    public CategoriaProducto getCategoria() {
+        return categoria;
     }
 
-    public void setTipo(Tipo tipo) {
-        this.tipo = tipo;
+    public void setCategoria(CategoriaProducto categoria) {
+        this.categoria = categoria;
     }
 
     public Usuario getVendedor() {

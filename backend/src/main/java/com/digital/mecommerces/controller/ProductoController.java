@@ -7,12 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/productos")
 public class ProductoController {
-
     private final ProductoService productoService;
 
     public ProductoController(ProductoService productoService) {
@@ -29,6 +29,12 @@ public class ProductoController {
     public ResponseEntity<Producto> obtenerProducto(@PathVariable Long id) {
         Producto producto = productoService.obtenerProductoPorId(id);
         return ResponseEntity.ok(producto);
+    }
+
+    @GetMapping("/categoria/{categoriaId}")
+    public ResponseEntity<List<Producto>> obtenerProductosPorCategoria(@PathVariable Long categoriaId) {
+        List<Producto> productos = productoService.obtenerProductosPorCategoria(categoriaId);
+        return ResponseEntity.ok(productos);
     }
 
     @PostMapping
@@ -49,3 +55,4 @@ public class ProductoController {
         return ResponseEntity.noContent().build();
     }
 }
+

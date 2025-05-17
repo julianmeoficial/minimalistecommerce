@@ -2,12 +2,9 @@ package com.digital.mecommerces.controller;
 
 import com.digital.mecommerces.dto.ProductoDTO;
 import com.digital.mecommerces.exception.ResourceNotFoundException;
-import com.digital.mecommerces.model.Orden;
-import com.digital.mecommerces.model.Producto;
-import com.digital.mecommerces.model.Tipo;
-import com.digital.mecommerces.model.Usuario;
+import com.digital.mecommerces.model.*;
 import com.digital.mecommerces.repository.OrdenRepository;
-import com.digital.mecommerces.repository.TipoRepository;
+import com.digital.mecommerces.repository.RolUsuarioRepository;
 import com.digital.mecommerces.repository.UsuarioRepository;
 import com.digital.mecommerces.service.ProductoService;
 import com.digital.mecommerces.service.UsuarioService;
@@ -23,26 +20,24 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-
     private final UsuarioService usuarioService;
     private final ProductoService productoService;
     private final OrdenRepository ordenRepository;
-    private final TipoRepository tipoRepository;
+    private final RolUsuarioRepository rolUsuarioRepository;
     private final UsuarioRepository usuarioRepository;
 
     public AdminController(UsuarioService usuarioService,
-                          ProductoService productoService,
-                          OrdenRepository ordenRepository,
-                          TipoRepository tipoRepository,
-                          UsuarioRepository usuarioRepository) {
+                           ProductoService productoService,
+                           OrdenRepository ordenRepository,
+                           RolUsuarioRepository rolUsuarioRepository,
+                           UsuarioRepository usuarioRepository) {
         this.usuarioService = usuarioService;
         this.productoService = productoService;
         this.ordenRepository = ordenRepository;
-        this.tipoRepository = tipoRepository;
+        this.rolUsuarioRepository = rolUsuarioRepository;
         this.usuarioRepository = usuarioRepository;
     }
 
-    // Gestión de Usuarios
     @GetMapping("/usuarios")
     public ResponseEntity<List<Usuario>> listarUsuarios() {
         List<Usuario> usuarios = usuarioService.obtenerUsuarios();
@@ -67,7 +62,6 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
-    // Gestión de Productos
     @GetMapping("/productos")
     public ResponseEntity<List<Producto>> listarProductos() {
         List<Producto> productos = productoService.obtenerProductos();
@@ -98,7 +92,6 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
-    // Gestión de Órdenes
     @GetMapping("/ordenes")
     public ResponseEntity<List<Orden>> listarOrdenes() {
         List<Orden> ordenes = ordenRepository.findAll();
@@ -121,53 +114,49 @@ public class AdminController {
         return ResponseEntity.ok(orden);
     }
 
-    // Dashboard y Estadísticas
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> obtenerDashboard() {
         Map<String, Object> dashboard = new HashMap<>();
-        
-        // Contar usuarios por tipo
-        List<Tipo> tipos = tipoRepository.findAll();
-        Map<String, Long> usuariosPorTipo = new HashMap<>();
-        
-        for (Tipo tipo : tipos) {
-            Long count = usuarioRepository.countByTipoTipoId(tipo.getTipoId());
-            usuariosPorTipo.put(tipo.getTipoNombre(), count);
+
+        List<RolUsuario> roles = rolUsuarioRepository.findAll();
+        Map<String, Long> usuariosPorRol = new HashMap<>();
+        for (RolUsuario rol : roles) {
+            Long count = usuarioRepository.countByRolRolId(rol.getRolId());
+            usuariosPorRol.put(rol.getNombre(), count);
         }
-        
-        // Contar productos por categoría
+
         List<Producto> productos = productoService.obtenerProductos();
         Map<String, Long> productosPorCategoria = new HashMap<>();
-        
         for (Producto producto : productos) {
-            String categoria = producto.getTipo().getTipoNombre();
-            productosPorCategoria.put(categoria, 
-                    productosPorCategoria.getOrDefault(categoria, 0L) + 1);
+            try {
+                // Acceso seguro a la categoría
+                String categoria = producto.getCategoria().getNombre();
+                productosPorCategoria.put(categoria, productosPorCategoria.getOrDefault(categoria, 0L) + 1);
+            } catch (Exception e) {
+                // Manejar productos con categorías inválidas
+                productosPorCategoria.put("Sin categoría", productosPorCategoria.getOrDefault("Sin categoría", 0L) + 1);
+            }
         }
-        
-        // Contar órdenes por estado
+
         List<Orden> ordenes = ordenRepository.findAll();
         Map<String, Long> ordenesPorEstado = new HashMap<>();
-        
         for (Orden orden : ordenes) {
             String estado = orden.getEstado();
-            ordenesPorEstado.put(estado, 
-                    ordenesPorEstado.getOrDefault(estado, 0L) + 1);
+            ordenesPorEstado.put(estado, ordenesPorEstado.getOrDefault(estado, 0L) + 1);
         }
-        
-        // Calcular ingresos totales
+
         double ingresosTotales = ordenes.stream()
                 .mapToDouble(Orden::getTotal)
                 .sum();
-        
-        dashboard.put("usuariosPorTipo", usuariosPorTipo);
+
+        dashboard.put("usuariosPorRol", usuariosPorRol);
         dashboard.put("productosPorCategoria", productosPorCategoria);
         dashboard.put("ordenesPorEstado", ordenesPorEstado);
         dashboard.put("ingresosTotales", ingresosTotales);
         dashboard.put("totalUsuarios", usuarioRepository.count());
         dashboard.put("totalProductos", productos.size());
         dashboard.put("totalOrdenes", ordenes.size());
-        
+
         return ResponseEntity.ok(dashboard);
     }
 }

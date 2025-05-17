@@ -16,7 +16,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -33,28 +32,45 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // Rutas públicas
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/productos/**").permitAll()
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> {
+                    // Rutas públicas - Swagger UI y documentación
+                    auth.requestMatchers("/swagger-ui/**").permitAll();
+                    auth.requestMatchers("/swagger-ui.html").permitAll();
+                    auth.requestMatchers("/swagger-resources/**").permitAll();
+                    auth.requestMatchers("/v3/api-docs/**").permitAll();
+                    auth.requestMatchers("/v3/api-docs").permitAll();
+                    auth.requestMatchers("/api-docs/**").permitAll();
+                    auth.requestMatchers("/webjars/**").permitAll();
 
-                        // Rutas para administradores
-                        .requestMatchers("/api/admin/**").hasAuthority("ADMINISTRADOR")
-                        .requestMatchers("/api/usuarios/**").hasAuthority("ADMINISTRADOR")
+                    // Rutas de autenticación
+                    auth.requestMatchers("/api/auth/**").permitAll();
 
-                        // Rutas para vendedores
-                        .requestMatchers("/api/vendedor/**").hasAuthority("VENDEDOR")
+                    // Rutas públicas de productos y categorías
+                    auth.requestMatchers("/api/productos").permitAll();
+                    auth.requestMatchers("/api/categorias/**").permitAll();
 
-                        // Rutas para compradores
-                        .requestMatchers("/api/carrito/**").hasAuthority("COMPRADOR")
+                    // Rutas para administradores
+                    auth.requestMatchers("/api/admin/**").hasAuthority("ADMINISTRADOR");
+                    auth.requestMatchers("/api/usuarios/**").hasAuthority("ADMINISTRADOR");
+                    auth.requestMatchers("/api/permisos/**").hasAuthority("ADMINISTRADOR");
+                    auth.requestMatchers("/api/roles/**").hasAuthority("ADMINISTRADOR");
+                    auth.requestMatchers("/api/roles-permisos/**").hasAuthority("ADMINISTRADOR");
 
-                        // Cualquier otra ruta requiere autenticación
-                        .anyRequest().authenticated()
-                );
+                    // Rutas para vendedores
+                    auth.requestMatchers("/api/vendedor/**").hasAuthority("VENDEDOR");
+
+                    // Rutas para compradores
+                    auth.requestMatchers("/api/carrito/**").hasAuthority("COMPRADOR");
+
+                    // Cualquier otra ruta requiere autenticación
+                    auth.anyRequest().authenticated();
+                });
 
         // Agregar filtro JWT antes del filtro de autenticación
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 

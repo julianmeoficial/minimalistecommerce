@@ -1,36 +1,37 @@
 package com.digital.mecommerces.service;
 
 import com.digital.mecommerces.exception.ResourceNotFoundException;
-import com.digital.mecommerces.model.CarritoCompra;
-import com.digital.mecommerces.model.CarritoItem;
-import com.digital.mecommerces.model.Producto;
-import com.digital.mecommerces.model.Usuario;
-import com.digital.mecommerces.repository.CarritoCompraRepository;
-import com.digital.mecommerces.repository.CarritoItemRepository;
-import com.digital.mecommerces.repository.ProductoRepository;
-import com.digital.mecommerces.repository.UsuarioRepository;
+import com.digital.mecommerces.model.*;
+import com.digital.mecommerces.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class CarritoService {
-
     private final CarritoCompraRepository carritoCompraRepository;
     private final CarritoItemRepository carritoItemRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProductoRepository productoRepository;
+    private final OrdenRepository ordenRepository;
+    private final OrdenDetalleRepository ordenDetalleRepository;
 
-    public CarritoService(CarritoCompraRepository carritoCompraRepository,
-                         CarritoItemRepository carritoItemRepository,
-                         UsuarioRepository usuarioRepository,
-                         ProductoRepository productoRepository) {
+    public CarritoService(
+            CarritoCompraRepository carritoCompraRepository,
+            CarritoItemRepository carritoItemRepository,
+            UsuarioRepository usuarioRepository,
+            ProductoRepository productoRepository,
+            OrdenRepository ordenRepository,
+            OrdenDetalleRepository ordenDetalleRepository
+    ) {
         this.carritoCompraRepository = carritoCompraRepository;
         this.carritoItemRepository = carritoItemRepository;
         this.usuarioRepository = usuarioRepository;
         this.productoRepository = productoRepository;
+        this.ordenRepository = ordenRepository;
+        this.ordenDetalleRepository = ordenDetalleRepository;
     }
 
     // Obtener el carrito activo de un usuario
@@ -50,6 +51,7 @@ public class CarritoService {
     @Transactional
     public CarritoItem agregarProductoAlCarrito(Long usuarioId, Long productoId, Integer cantidad) {
         CarritoCompra carrito = obtenerCarritoActivo(usuarioId);
+
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
 
@@ -74,15 +76,15 @@ public class CarritoService {
     @Transactional
     public CarritoItem actualizarCantidadProducto(Long usuarioId, Long itemId, Integer cantidad) {
         CarritoCompra carrito = obtenerCarritoActivo(usuarioId);
-        
+
         CarritoItem item = carritoItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Item no encontrado con id: " + itemId));
-        
+
         // Verificar que el item pertenece al carrito del usuario
         if (!item.getCarritoCompra().getCarritoId().equals(carrito.getCarritoId())) {
             throw new IllegalArgumentException("El item no pertenece al carrito del usuario");
         }
-        
+
         if (cantidad <= 0) {
             // Eliminar el item si la cantidad es 0 o negativa
             carrito.removeItem(item);
@@ -100,15 +102,15 @@ public class CarritoService {
     @Transactional
     public void eliminarProductoDelCarrito(Long usuarioId, Long itemId) {
         CarritoCompra carrito = obtenerCarritoActivo(usuarioId);
-        
+
         CarritoItem item = carritoItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Item no encontrado con id: " + itemId));
-        
+
         // Verificar que el item pertenece al carrito del usuario
         if (!item.getCarritoCompra().getCarritoId().equals(carrito.getCarritoId())) {
             throw new IllegalArgumentException("El item no pertenece al carrito del usuario");
         }
-        
+
         carrito.removeItem(item);
         carritoItemRepository.delete(item);
         carritoCompraRepository.save(carrito);
@@ -124,40 +126,40 @@ public class CarritoService {
 
     // Convertir carrito a orden
     @Transactional
-    public com.digital.mecommerces.model.Orden convertirCarritoAOrden(Long usuarioId) {
+    public Orden convertirCarritoAOrden(Long usuarioId) {
         CarritoCompra carrito = obtenerCarritoActivo(usuarioId);
-        
+
         if (carrito.getItems().isEmpty()) {
             throw new IllegalStateException("No se puede crear una orden con un carrito vacío");
         }
-        
+
         // Crear nueva orden
-        com.digital.mecommerces.model.Orden orden = new com.digital.mecommerces.model.Orden(
+        Orden orden = new Orden(
                 carrito.getUsuario(),
                 "PENDIENTE",
                 carrito.calcularTotal()
         );
-        
+
         // Agregar detalles de la orden
         for (CarritoItem item : carrito.getItems()) {
-            com.digital.mecommerces.model.OrdenDetalle detalle = new com.digital.mecommerces.model.OrdenDetalle(
+            OrdenDetalle detalle = new OrdenDetalle(
                     item.getProducto(),
                     item.getCantidad(),
                     item.getPrecioUnitario()
             );
             orden.addDetalle(detalle);
-            
+
             // Actualizar stock del producto
             Producto producto = item.getProducto();
             producto.setStock(producto.getStock() - item.getCantidad());
             productoRepository.save(producto);
         }
-        
+
         // Desactivar el carrito
         carrito.setActivo(false);
         carritoCompraRepository.save(carrito);
-        
+
         // Guardar y retornar la orden
-        return orden;
+        return ordenRepository.save(orden);
     }
 }

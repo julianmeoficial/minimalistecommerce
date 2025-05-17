@@ -1,8 +1,11 @@
 package com.digital.mecommerces.controller;
 
+import com.digital.mecommerces.exception.ResourceNotFoundException;
 import com.digital.mecommerces.model.CarritoCompra;
 import com.digital.mecommerces.model.CarritoItem;
 import com.digital.mecommerces.model.Orden;
+import com.digital.mecommerces.model.Usuario;
+import com.digital.mecommerces.repository.UsuarioRepository;
 import com.digital.mecommerces.service.CarritoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,14 +16,14 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/carrito")
 public class CarritoController {
-
     private final CarritoService carritoService;
+    private final UsuarioRepository usuarioRepository;
 
-    public CarritoController(CarritoService carritoService) {
+    public CarritoController(CarritoService carritoService, UsuarioRepository usuarioRepository) {
         this.carritoService = carritoService;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    // Obtener el carrito activo del usuario autenticado
     @GetMapping
     public ResponseEntity<CarritoCompra> obtenerCarritoActivo() {
         Long usuarioId = obtenerUsuarioIdAutenticado();
@@ -28,32 +31,23 @@ public class CarritoController {
         return ResponseEntity.ok(carrito);
     }
 
-    // Agregar un producto al carrito
     @PostMapping("/items")
-    public ResponseEntity<CarritoItem> agregarProductoAlCarrito(
-            @RequestParam Long productoId,
-            @RequestParam Integer cantidad) {
+    public ResponseEntity<CarritoItem> agregarProductoAlCarrito(@RequestParam Long productoId, @RequestParam Integer cantidad) {
         Long usuarioId = obtenerUsuarioIdAutenticado();
         CarritoItem item = carritoService.agregarProductoAlCarrito(usuarioId, productoId, cantidad);
         return new ResponseEntity<>(item, HttpStatus.CREATED);
     }
 
-    // Actualizar cantidad de un producto en el carrito
     @PutMapping("/items/{itemId}")
-    public ResponseEntity<?> actualizarCantidadProducto(
-            @PathVariable Long itemId,
-            @RequestParam Integer cantidad) {
+    public ResponseEntity<?> actualizarCantidadProducto(@PathVariable Long itemId, @RequestParam Integer cantidad) {
         Long usuarioId = obtenerUsuarioIdAutenticado();
         CarritoItem item = carritoService.actualizarCantidadProducto(usuarioId, itemId, cantidad);
-        
         if (item == null) {
             return ResponseEntity.noContent().build();
         }
-        
         return ResponseEntity.ok(item);
     }
 
-    // Eliminar un producto del carrito
     @DeleteMapping("/items/{itemId}")
     public ResponseEntity<Void> eliminarProductoDelCarrito(@PathVariable Long itemId) {
         Long usuarioId = obtenerUsuarioIdAutenticado();
@@ -61,7 +55,6 @@ public class CarritoController {
         return ResponseEntity.noContent().build();
     }
 
-    // Vaciar el carrito
     @DeleteMapping
     public ResponseEntity<Void> vaciarCarrito() {
         Long usuarioId = obtenerUsuarioIdAutenticado();
@@ -69,7 +62,6 @@ public class CarritoController {
         return ResponseEntity.noContent().build();
     }
 
-    // Convertir carrito a orden
     @PostMapping("/checkout")
     public ResponseEntity<Orden> checkout() {
         Long usuarioId = obtenerUsuarioIdAutenticado();
@@ -77,11 +69,13 @@ public class CarritoController {
         return new ResponseEntity<>(orden, HttpStatus.CREATED);
     }
 
-    // Método auxiliar para obtener el ID del usuario autenticado
     private Long obtenerUsuarioIdAutenticado() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        // Aquí deberías implementar la lógica para obtener el ID del usuario a partir de la autenticación
-        // Por simplicidad, asumimos que el nombre de usuario es el ID
-        return Long.parseLong(authentication.getName());
+        String email = authentication.getName();
+
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
+
+        return usuario.getUsuarioId();
     }
 }
