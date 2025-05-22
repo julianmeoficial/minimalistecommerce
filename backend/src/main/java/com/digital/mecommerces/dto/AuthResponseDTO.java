@@ -1,16 +1,18 @@
 package com.digital.mecommerces.dto;
 
-public class AuthResponseDTO {
+import com.fasterxml.jackson.annotation.JsonInclude;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AuthResponseDTO {
     private String mensaje;
     private boolean success;
     private String token;
+    private Object usuario; // Sin exponer password
 
     // Constructor vacío
-    public AuthResponseDTO() {
-    }
+    public AuthResponseDTO() {}
 
-    // Constructor sin token (para mensajes de error o éxito sin token)
+    // Constructor sin token
     public AuthResponseDTO(String mensaje, boolean success) {
         this.mensaje = mensaje;
         this.success = success;
@@ -46,5 +48,13 @@ public class AuthResponseDTO {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public Object getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Object usuario) {
+        this.usuario = usuario;
     }
 }

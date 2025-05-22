@@ -1,52 +1,40 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name = "rol_usuario")
+@Table(name = "rolusuario")
+@Data
+@NoArgsConstructor
+@EqualsAndHashCode(exclude = {"usuarios", "rolPermisos"})
+@ToString(exclude = {"usuarios", "rolPermisos"})
 public class RolUsuario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rol_id", nullable = false)
     private Long rolId;
 
-    @Column(name = "nombre", nullable = false, length = 50)
+    @Column(name = "nombre", nullable = false, unique = true, length = 50)
     private String nombre;
 
-    @Column(name = "descripcion")
+    @Column(name = "descripcion", length = 255)
     private String descripcion;
 
-    // Constructor vacío requerido por JPA
-    public RolUsuario() {}
+    @OneToMany(mappedBy = "rol", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Usuario> usuarios = new ArrayList<>();
 
-    // Constructor con parámetros
+    @OneToMany(mappedBy = "rol", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<RolPermiso> rolPermisos = new ArrayList<>();
+
     public RolUsuario(String nombre, String descripcion) {
         this.nombre = nombre;
-        this.descripcion = descripcion;
-    }
-
-    // Getters y Setters
-    public Long getRolId() {
-        return rolId;
-    }
-
-    public void setRolId(Long rolId) {
-        this.rolId = rolId;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
-    public String getDescripcion() {
-        return descripcion;
-    }
-
-    public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
     }
 }

@@ -12,18 +12,30 @@ public class CategoriaProducto {
     @Column(name = "categoria_id", nullable = false)
     private Long categoriaId;
 
-    @Column(name = "nombre", nullable = false, length = 50)
+    @Column(name = "nombre", nullable = false, length = 50, unique = true)
     private String nombre;
 
-    @Column(name = "descripcion")
+    @Column(name = "descripcion", length = 255)
     private String descripcion;
 
-    @ManyToOne
-    @JoinColumn(name = "categoria_padre_id")
+    @Column(name = "categoria_padre_id")
+    private Long categoriapadreId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_padre_id", insertable = false, updatable = false)
     private CategoriaProducto categoriaPadre;
 
-    @OneToMany(mappedBy = "categoriaPadre")
+    @OneToMany(mappedBy = "categoriaPadre", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<CategoriaProducto> subcategorias = new ArrayList<>();
+
+    @Column(name = "slug", length = 100, unique = true)
+    private String slug;
+
+    @Column(name = "imagen", length = 255)
+    private String imagen;
+
+    @Column(name = "activo")
+    private Boolean activo = true;
 
     // Constructor vacío
     public CategoriaProducto() {}
@@ -32,6 +44,7 @@ public class CategoriaProducto {
     public CategoriaProducto(String nombre, String descripcion) {
         this.nombre = nombre;
         this.descripcion = descripcion;
+        this.activo = true;
     }
 
     // Constructor con categoría padre
@@ -39,6 +52,10 @@ public class CategoriaProducto {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaPadre = categoriaPadre;
+        if (categoriaPadre != null) {
+            this.categoriapadreId = categoriaPadre.getCategoriaId();
+        }
+        this.activo = true;
     }
 
     // Getters y Setters
@@ -66,12 +83,23 @@ public class CategoriaProducto {
         this.descripcion = descripcion;
     }
 
+    public Long getCategoriapadreId() {
+        return categoriapadreId;
+    }
+
+    public void setCategoriapadreId(Long categoriapadreId) {
+        this.categoriapadreId = categoriapadreId;
+    }
+
     public CategoriaProducto getCategoriaPadre() {
         return categoriaPadre;
     }
 
     public void setCategoriaPadre(CategoriaProducto categoriaPadre) {
         this.categoriaPadre = categoriaPadre;
+        if (categoriaPadre != null) {
+            this.categoriapadreId = categoriaPadre.getCategoriaId();
+        }
     }
 
     public List<CategoriaProducto> getSubcategorias() {
@@ -80,5 +108,53 @@ public class CategoriaProducto {
 
     public void setSubcategorias(List<CategoriaProducto> subcategorias) {
         this.subcategorias = subcategorias;
+    }
+
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
+    public String getImagen() {
+        return imagen;
+    }
+
+    public void setImagen(String imagen) {
+        this.imagen = imagen;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
+
+    // Métodos de utilidad
+    public boolean isActivo() {
+        return activo != null && activo;
+    }
+
+    public boolean tienePadre() {
+        return categoriaPadre != null;
+    }
+
+    public boolean tieneSubcategorias() {
+        return subcategorias != null && !subcategorias.isEmpty();
+    }
+
+    @Override
+    public String toString() {
+        return "CategoriaProducto{" +
+                "categoriaId=" + categoriaId +
+                ", nombre='" + nombre + '\'' +
+                ", descripcion='" + descripcion + '\'' +
+                ", activo=" + activo +
+                ", slug='" + slug + '\'' +
+                '}';
     }
 }

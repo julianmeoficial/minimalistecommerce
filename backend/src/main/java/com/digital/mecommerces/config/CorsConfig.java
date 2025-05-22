@@ -14,16 +14,20 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
 
-        // Permite solicitudes desde el origen de tu frontend
+        // Permite tu frontend
         config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin("http://localhost:3001");
 
-        // Permite los métodos HTTP comunes
-        config.addAllowedMethod("*");
+        // Métodos permitidos
+        config.addAllowedMethod("GET");
+        config.addAllowedMethod("POST");
+        config.addAllowedMethod("PUT");
+        config.addAllowedMethod("DELETE");
+        config.addAllowedMethod("PATCH");
+        config.addAllowedMethod("OPTIONS");
 
-        // Permite encabezados comunes
+        // Headers permitidos
         config.addAllowedHeader("*");
-
-        // Permite incluir cookies en solicitudes CORS
         config.setAllowCredentials(true);
 
         source.registerCorsConfiguration("/**", config);

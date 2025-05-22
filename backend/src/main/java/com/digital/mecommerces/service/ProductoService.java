@@ -113,7 +113,7 @@ public class ProductoService {
     }
 
     public List<Producto> obtenerProductosPorCategoria(Long categoriaId) {
-        return productoRepository.findByCategoriaCategoriaId(categoriaId);
+        return productoRepository.findByCategoriaId(categoriaId);
     }
 
     public List<Producto> obtenerProductosPorVendedor(Long vendedorId) {

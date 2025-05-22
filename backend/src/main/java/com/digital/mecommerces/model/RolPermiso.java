@@ -1,64 +1,52 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rol_permiso")
+@Table(name = "rolpermiso")
+@Data
+@NoArgsConstructor
 @IdClass(RolPermisoId.class)
 public class RolPermiso implements Serializable {
 
     @Id
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "rol_id", nullable = false)
-    private RolUsuario rol;
+    @Column(name = "rol_id")
+    private Long rolId;
 
     @Id
+    @Column(name = "permiso_id")
+    private Long permisoId;
+
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "permiso_id", nullable = false)
+    @JoinColumn(name = "rol_id", insertable = false, updatable = false)
+    private RolUsuario rol;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "permiso_id", insertable = false, updatable = false)
     private Permiso permiso;
 
-    // Constructor vacío requerido por JPA
-    public RolPermiso() {}
+    @Column(name = "createdat")
+    private LocalDateTime createdat;
 
-    // Constructor con parámetros
+    @Column(name = "createdby", length = 50)
+    private String createdby;
+
     public RolPermiso(RolUsuario rol, Permiso permiso) {
         this.rol = rol;
         this.permiso = permiso;
+        this.rolId = rol.getRolId();
+        this.permisoId = permiso.getPermisoId();
+        this.createdat = LocalDateTime.now();
     }
 
-    // Getters y Setters
-    public RolUsuario getRol() {
-        return rol;
-    }
-
-    public void setRol(RolUsuario rol) {
-        this.rol = rol;
-    }
-
-    public Permiso getPermiso() {
-        return permiso;
-    }
-
-    public void setPermiso(Permiso permiso) {
-        this.permiso = permiso;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        RolPermiso that = (RolPermiso) o;
-
-        if (rol != null ? !rol.equals(that.rol) : that.rol != null) return false;
-        return permiso != null ? permiso.equals(that.permiso) : that.permiso == null;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = rol != null ? rol.hashCode() : 0;
-        result = 31 * result + (permiso != null ? permiso.hashCode() : 0);
-        return result;
+    public RolPermiso(Long rolId, Long permisoId) {
+        this.rolId = rolId;
+        this.permisoId = permisoId;
+        this.createdat = LocalDateTime.now();
     }
 }

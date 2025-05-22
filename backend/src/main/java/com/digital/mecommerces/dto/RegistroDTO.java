@@ -4,9 +4,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class RegistroDTO {
+
     @NotBlank(message = "El nombre es obligatorio")
     private String nombre;
 
@@ -16,7 +17,7 @@ public class RegistroDTO {
 
     @NotBlank(message = "La contraseña es obligatoria")
     @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-    @JsonIgnore // Evita exponer la contraseña en respuestas
+    @JsonProperty("password") // PERMITIR deserialización
     private String password;
 
     @NotNull(message = "El rol de usuario es obligatorio")

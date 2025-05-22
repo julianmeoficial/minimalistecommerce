@@ -1,6 +1,7 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,7 +10,7 @@ import java.util.List;
 public class Producto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "producto_id", nullable = false, columnDefinition = "BIGINT")
+    @Column(name = "producto_id", nullable = false)
     private Long productoId;
 
     @Column(name = "producto_nombre", nullable = false, length = 100)
@@ -24,23 +25,44 @@ public class Producto {
     @Column(name = "stock", nullable = false)
     private Integer stock;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "categoria_id", nullable = false)
     private CategoriaProducto categoria;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendedor_id", nullable = false)
     private Usuario vendedor;
 
-    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "slug", length = 150, unique = true)
+    private String slug;
+
+    @Column(name = "createdat")
+    private LocalDateTime createdat;
+
+    @Column(name = "updatedat")
+    private LocalDateTime updatedat;
+
+    @Column(name = "activo")
+    private Boolean activo = true;
+
+    @Column(name = "destacado")
+    private Boolean destacado = false;
+
+    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProductoImagen> imagenes = new ArrayList<>();
 
     // Constructor vacío
-    public Producto() {}
+    public Producto() {
+        this.createdat = LocalDateTime.now();
+        this.updatedat = LocalDateTime.now();
+        this.activo = true;
+        this.destacado = false;
+    }
 
     // Constructor con parámetros
-    public Producto(String productoNombre, String descripcion, Double precio,
-                    Integer stock, CategoriaProducto categoria, Usuario vendedor) {
+    public Producto(String productoNombre, String descripcion, Double precio, Integer stock,
+                    CategoriaProducto categoria, Usuario vendedor) {
+        this();
         this.productoNombre = productoNombre;
         this.descripcion = descripcion;
         this.precio = precio;
@@ -49,7 +71,12 @@ public class Producto {
         this.vendedor = vendedor;
     }
 
-    // Getters y Setters
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedat = LocalDateTime.now();
+    }
+
+    // Getters y Setters (todos los métodos que te proporcioné anteriormente)
     public Long getProductoId() {
         return productoId;
     }
@@ -106,6 +133,46 @@ public class Producto {
         this.vendedor = vendedor;
     }
 
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
+    public LocalDateTime getCreatedat() {
+        return createdat;
+    }
+
+    public void setCreatedat(LocalDateTime createdat) {
+        this.createdat = createdat;
+    }
+
+    public LocalDateTime getUpdatedat() {
+        return updatedat;
+    }
+
+    public void setUpdatedat(LocalDateTime updatedat) {
+        this.updatedat = updatedat;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
+
+    public Boolean getDestacado() {
+        return destacado;
+    }
+
+    public void setDestacado(Boolean destacado) {
+        this.destacado = destacado;
+    }
+
     public List<ProductoImagen> getImagenes() {
         return imagenes;
     }
@@ -114,6 +181,7 @@ public class Producto {
         this.imagenes = imagenes;
     }
 
+    // Métodos de utilidad
     public void addImagen(ProductoImagen imagen) {
         imagenes.add(imagen);
         imagen.setProducto(this);
@@ -122,5 +190,25 @@ public class Producto {
     public void removeImagen(ProductoImagen imagen) {
         imagenes.remove(imagen);
         imagen.setProducto(null);
+    }
+
+    public boolean isActivo() {
+        return activo != null && activo;
+    }
+
+    public boolean isDestacado() {
+        return destacado != null && destacado;
+    }
+
+    @Override
+    public String toString() {
+        return "Producto{" +
+                "productoId=" + productoId +
+                ", productoNombre='" + productoNombre + '\'' +
+                ", precio=" + precio +
+                ", stock=" + stock +
+                ", activo=" + activo +
+                ", slug='" + slug + '\'' +
+                '}';
     }
 }

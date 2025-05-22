@@ -40,7 +40,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         authorities.add(new SimpleGrantedAuthority(rol.getNombre()));
 
         // Cargar permisos asociados al rol
-        List<Permiso> permisos = rolPermisoRepository.findByRolRolId(rol.getRolId())
+        List<Permiso> permisos = rolPermisoRepository.findByRolId(rol.getRolId())
                 .stream()
                 .map(RolPermiso::getPermiso)
                 .collect(Collectors.toList());

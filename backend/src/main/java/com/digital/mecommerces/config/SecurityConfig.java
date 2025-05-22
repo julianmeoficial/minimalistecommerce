@@ -44,12 +44,20 @@ public class SecurityConfig {
                     auth.requestMatchers("/api-docs/**").permitAll();
                     auth.requestMatchers("/webjars/**").permitAll();
 
-                    // Rutas de autenticación
+                    // Rutas de autenticación y registro
                     auth.requestMatchers("/api/auth/**").permitAll();
 
                     // Rutas públicas de productos y categorías
                     auth.requestMatchers("/api/productos").permitAll();
+                    auth.requestMatchers("/api/productos/**").permitAll();
                     auth.requestMatchers("/api/categorias/**").permitAll();
+                    auth.requestMatchers("/api/public/**").permitAll();
+
+                    // Health check
+                    auth.requestMatchers("/api/health").permitAll();
+
+                    // Rutas de imágenes
+                    auth.requestMatchers("/api/imagenes/upload").authenticated();
 
                     // Rutas para administradores
                     auth.requestMatchers("/api/admin/**").hasAuthority("ADMINISTRADOR");
@@ -58,11 +66,10 @@ public class SecurityConfig {
                     auth.requestMatchers("/api/roles/**").hasAuthority("ADMINISTRADOR");
                     auth.requestMatchers("/api/roles-permisos/**").hasAuthority("ADMINISTRADOR");
 
-                    // Rutas para vendedores
+                    // Rutas específicas por rol
                     auth.requestMatchers("/api/vendedor/**").hasAuthority("VENDEDOR");
-
-                    // Rutas para compradores
                     auth.requestMatchers("/api/carrito/**").hasAuthority("COMPRADOR");
+                    auth.requestMatchers("/api/ordenes/**").hasAnyAuthority("COMPRADOR", "VENDEDOR", "ADMINISTRADOR");
 
                     // Cualquier otra ruta requiere autenticación
                     auth.anyRequest().authenticated();
