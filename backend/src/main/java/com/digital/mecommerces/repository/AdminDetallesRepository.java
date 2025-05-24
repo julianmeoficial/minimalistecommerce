@@ -8,7 +8,10 @@ import java.util.Optional;
 
 @Repository
 public interface AdminDetallesRepository extends JpaRepository<AdminDetalles, Long> {
+
     Optional<AdminDetalles> findByUsuarioId(Long usuarioId);
+
     boolean existsByUsuarioId(Long usuarioId);
+
     void deleteByUsuarioId(Long usuarioId);
 }

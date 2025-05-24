@@ -58,7 +58,7 @@ public class VendedorController {
 
         // Verificar que el producto pertenece al vendedor
         Producto producto = productoService.obtenerProductoPorId(id);
-        if (!producto.getVendedor().getUsuarioId().equals(vendedorId)) {
+        if (!producto.getVendedorId().equals(vendedorId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

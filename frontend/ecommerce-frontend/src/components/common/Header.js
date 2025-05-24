@@ -2,25 +2,25 @@ import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { logout } from '../../services/auth.service';
-import LogoutButton from './LogoutButton'; // Componente del nuevo botón
-import './Header.css';
+import LogoutButton from './LogoutButton';
+import './DashboardHeader.css';
 
-const Header = () => {
+const DashboardHeader = () => {
     const { currentUser, setCurrentUser, userDetails } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const handleLogout = () => {
         logout();
         setCurrentUser(null);
-        navigate('/login');
+        navigate('/');
     };
 
     return (
         <>
-            <header className="header">
+            <header className="dashboard-header">
                 <div className="header-container">
                     <div className="logo">
-                        <Link to="/dashboard">
+                        <Link to="/">
                             <span className="logo-text">Mecommerces</span>
                         </Link>
                     </div>
@@ -28,7 +28,7 @@ const Header = () => {
                     {currentUser && (
                         <nav className="navigation">
                             <ul>
-                                <li><Link to="/dashboard">Inicio</Link></li>
+                                <li><Link to="/dashboard">Dashboard</Link></li>
                                 <li><Link to="/error500">Productos</Link></li>
                                 {userDetails?.rol?.nombre === 'COMPRADOR' && (
                                     <li><Link to="/dashboard/cart">Carrito</Link></li>
@@ -67,4 +67,4 @@ const Header = () => {
     );
 };
 
-export default Header;
+export default DashboardHeader;

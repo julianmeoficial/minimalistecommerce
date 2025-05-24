@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Header from '../common/Header';
+import DashboardHeader from '../common/DashboardHeader'; // Cambiar esta importación
 import Footer from '../common/Footer';
 import { AuthContext } from '../../context/AuthContext';
 import ProductList from '../products/ProductList';
@@ -8,7 +8,7 @@ import ProductDetail from '../products/ProductDetail';
 import InteractiveLoader from '../common/InteractiveLoader';
 import Home from './Home';
 import VendorProducts from '../vendor/VendorProducts';
-import UserProfile from '../user/UserProfile'; // Importar el componente UserProfile
+import UserProfile from '../user/UserProfile';
 import Error500 from '../common/Error500';
 import './Dashboard.css';
 
@@ -21,11 +21,11 @@ const Dashboard = () => {
     const { userDetails } = useContext(AuthContext);
     const location = useLocation();
 
-    // MOVER EL useEffect AQUÍ DENTRO DEL COMPONENTE
+    // useEffect para ajuste dinámico de alturas
     useEffect(() => {
         const adjustHeights = () => {
             const windowHeight = window.innerHeight;
-            const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
+            const headerHeight = document.querySelector('.dashboard-header')?.offsetHeight || 0;
             const footerHeight = document.querySelector('.footer')?.offsetHeight || 0;
             const availableHeight = windowHeight - headerHeight - footerHeight;
 
@@ -59,7 +59,7 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard">
-            <Header />
+            <DashboardHeader /> {/* Usar el header específico del dashboard */}
             <main className="dashboard-content">
                 <Routes>
                     <Route path="/" element={isMainDashboard ? <InteractiveLoader /> : <Home />} />

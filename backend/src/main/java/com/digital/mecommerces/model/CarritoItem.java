@@ -1,32 +1,40 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "carrito_item")
+@Table(name = "carritoitem")
 public class CarritoItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "item_id", nullable = false)
+    @Column(name = "itemid", nullable = false)
     private Long itemId;
 
     @ManyToOne
-    @JoinColumn(name = "carrito_id", nullable = false)
+    @JoinColumn(name = "carritoid", nullable = false)
     private CarritoCompra carritoCompra;
 
     @ManyToOne
-    @JoinColumn(name = "producto_id", nullable = false)
+    @JoinColumn(name = "productoid", nullable = false)
     private Producto producto;
 
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
-    @Column(name = "precio_unitario", nullable = false)
+    @Column(name = "preciounitario", nullable = false)
     private Double precioUnitario;
+
+    @Column(name = "fechaagregado")
+    private LocalDateTime fechaAgregado;
+
+    @Column(name = "guardadodespues")
+    private Boolean guardadoDespues = false;
 
     // Constructor vacío
     public CarritoItem() {
+        this.fechaAgregado = LocalDateTime.now();
     }
 
     // Constructor con parámetros
@@ -34,6 +42,8 @@ public class CarritoItem {
         this.producto = producto;
         this.cantidad = cantidad;
         this.precioUnitario = producto.getPrecio();
+        this.fechaAgregado = LocalDateTime.now();
+        this.guardadoDespues = false;
     }
 
     // Getters y Setters
@@ -78,6 +88,22 @@ public class CarritoItem {
 
     public void setPrecioUnitario(Double precioUnitario) {
         this.precioUnitario = precioUnitario;
+    }
+
+    public LocalDateTime getFechaAgregado() {
+        return fechaAgregado;
+    }
+
+    public void setFechaAgregado(LocalDateTime fechaAgregado) {
+        this.fechaAgregado = fechaAgregado;
+    }
+
+    public Boolean getGuardadoDespues() {
+        return guardadoDespues;
+    }
+
+    public void setGuardadoDespues(Boolean guardadoDespues) {
+        this.guardadoDespues = guardadoDespues;
     }
 
     // Método para calcular el subtotal

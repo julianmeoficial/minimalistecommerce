@@ -3,38 +3,53 @@ package com.digital.mecommerces.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "orden_detalle")
+@Table(name = "ordendetalle")
 public class OrdenDetalle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "detalle_id", nullable = false)
+    @Column(name = "detalleid") // CORREGIDO: era "detalle_id"
     private Long detalleId;
 
-    @ManyToOne
-    @JoinColumn(name = "orden_id", nullable = false)
+    @Column(name = "ordenid", nullable = false) // CORREGIDO: era "orden_id"
+    private Long ordenId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ordenid", insertable = false, updatable = false)
     private Orden orden;
 
-    @ManyToOne
-    @JoinColumn(name = "producto_id", nullable = false)
+    @Column(name = "productoid", nullable = false) // CORREGIDO: era "producto_id"
+    private Long productoId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "productoid", insertable = false, updatable = false)
     private Producto producto;
 
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
-    @Column(name = "precio_unitario", nullable = false)
+    @Column(name = "preciounitario", nullable = false) // CORREGIDO: era "precio_unitario"
     private Double precioUnitario;
 
     @Column(name = "subtotal", nullable = false)
     private Double subtotal;
 
+    @Column(name = "notas", length = 255)
+    private String notas;
+
+    @Column(name = "personalizado")
+    private Boolean personalizado = false;
+
+    @Column(name = "opcionespersonalizacion", columnDefinition = "TEXT") // CORREGIDO: era "opciones_personalizacion"
+    private String opcionesPersonalizacion;
+
     // Constructor vacío
-    public OrdenDetalle() {
-    }
+    public OrdenDetalle() {}
 
     // Constructor con parámetros
     public OrdenDetalle(Producto producto, Integer cantidad, Double precioUnitario) {
         this.producto = producto;
+        this.productoId = producto.getProductoId();
         this.cantidad = cantidad;
         this.precioUnitario = precioUnitario;
         this.subtotal = cantidad * precioUnitario;
@@ -49,12 +64,31 @@ public class OrdenDetalle {
         this.detalleId = detalleId;
     }
 
+    public Long getOrdenId() {
+        return ordenId;
+    }
+
+    public void setOrdenId(Long ordenId) {
+        this.ordenId = ordenId;
+    }
+
     public Orden getOrden() {
         return orden;
     }
 
     public void setOrden(Orden orden) {
         this.orden = orden;
+        if (orden != null) {
+            this.ordenId = orden.getOrdenId();
+        }
+    }
+
+    public Long getProductoId() {
+        return productoId;
+    }
+
+    public void setProductoId(Long productoId) {
+        this.productoId = productoId;
     }
 
     public Producto getProducto() {
@@ -63,6 +97,9 @@ public class OrdenDetalle {
 
     public void setProducto(Producto producto) {
         this.producto = producto;
+        if (producto != null) {
+            this.productoId = producto.getProductoId();
+        }
     }
 
     public Integer getCantidad() {
@@ -89,5 +126,29 @@ public class OrdenDetalle {
 
     public void setSubtotal(Double subtotal) {
         this.subtotal = subtotal;
+    }
+
+    public String getNotas() {
+        return notas;
+    }
+
+    public void setNotas(String notas) {
+        this.notas = notas;
+    }
+
+    public Boolean getPersonalizado() {
+        return personalizado;
+    }
+
+    public void setPersonalizado(Boolean personalizado) {
+        this.personalizado = personalizado;
+    }
+
+    public String getOpcionesPersonalizacion() {
+        return opcionesPersonalizacion;
+    }
+
+    public void setOpcionesPersonalizacion(String opcionesPersonalizacion) {
+        this.opcionesPersonalizacion = opcionesPersonalizacion;
     }
 }

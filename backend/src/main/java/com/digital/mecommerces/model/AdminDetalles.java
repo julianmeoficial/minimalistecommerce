@@ -4,31 +4,31 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "admin_detalles")
+@Table(name = "admindetalles")
 public class AdminDetalles {
 
     @Id
-    @Column(name = "usuario_id")
+    @Column(name = "usuarioid")
     private Long usuarioId;
 
     @OneToOne
     @MapsId
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuarioid")
     private Usuario usuario;
 
     @Column(name = "region", length = 100)
     private String region;
 
-    @Column(name = "nivel_acceso", length = 255)
+    @Column(name = "nivelacceso", length = 255)
     private String nivelAcceso;
 
-    @Column(name = "ultima_accion", length = 255)
+    @Column(name = "ultimaaccion", length = 255)
     private String ultimaAccion;
 
-    @Column(name = "ultimo_login")
+    @Column(name = "ultimologin")
     private LocalDateTime ultimoLogin;
 
-    @Column(name = "ip_acceso", length = 50)
+    @Column(name = "ipacceso", length = 50)
     private String ipAcceso;
 
     // Constructor vacío
@@ -37,10 +37,19 @@ public class AdminDetalles {
     // Constructor con usuario
     public AdminDetalles(Usuario usuario) {
         this.usuario = usuario;
-        this.usuarioId = usuario.getUsuarioId();
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
     }
 
-    // Getters y Setters (similares a CompradorDetalles)
+    @PrePersist
+    public void prePersist() {
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
+    }
+
+    // Getters y Setters
     public Long getUsuarioId() {
         return usuarioId;
     }
@@ -60,7 +69,6 @@ public class AdminDetalles {
         }
     }
 
-    // ... resto de getters y setters
     public String getRegion() {
         return region;
     }

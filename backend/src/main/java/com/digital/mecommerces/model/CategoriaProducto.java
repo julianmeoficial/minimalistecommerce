@@ -5,11 +5,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "categoria_producto")
+@Table(name = "categoriaproducto")
 public class CategoriaProducto {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "categoria_id", nullable = false)
+    @Column(name = "categoriaid", nullable = false)
     private Long categoriaId;
 
     @Column(name = "nombre", nullable = false, length = 50, unique = true)
@@ -18,14 +19,14 @@ public class CategoriaProducto {
     @Column(name = "descripcion", length = 255)
     private String descripcion;
 
-    @Column(name = "categoria_padre_id")
+    @Column(name = "categoriapadreid")
     private Long categoriapadreId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "categoria_padre_id", insertable = false, updatable = false)
+    @JoinColumn(name = "categoriapadreid", insertable = false, updatable = false)
     private CategoriaProducto categoriaPadre;
 
-    @OneToMany(mappedBy = "categoriaPadre", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "categoriaPadre", cascade = CascadeType.ALL)
     private List<CategoriaProducto> subcategorias = new ArrayList<>();
 
     @Column(name = "slug", length = 100, unique = true)

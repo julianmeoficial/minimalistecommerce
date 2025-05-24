@@ -4,49 +4,49 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "vendedor_detalles")
+@Table(name = "vendedordetalles")
 public class VendedorDetalles {
 
     @Id
-    @Column(name = "usuario_id")
+    @Column(name = "usuarioid")
     private Long usuarioId;
 
     @OneToOne
     @MapsId
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuarioid")
     private Usuario usuario;
 
-    @Column(name = "rfc", length = 20)
-    private String rfc;
+    @Column(name = "rut", length = 20)
+    private String rut;
 
     @Column(name = "especialidad", length = 100)
     private String especialidad;
 
-    @Column(name = "direccion_comercial", length = 255)
+    @Column(name = "direccioncomercial", length = 255)
     private String direccionComercial;
 
-    @Column(name = "num_registro_fiscal", length = 255)
+    @Column(name = "numregistrofiscal", length = 255)
     private String numRegistroFiscal;
 
     @Column(name = "verificado")
     private Boolean verificado = false;
 
-    @Column(name = "fecha_verificacion")
+    @Column(name = "fechaverificacion")
     private LocalDateTime fechaVerificacion;
 
-    @Column(name = "documento_comercial", length = 255)
+    @Column(name = "documentocomercial", length = 255)
     private String documentoComercial;
 
-    @Column(name = "tipo_documento", length = 50)
+    @Column(name = "tipodocumento", length = 50)
     private String tipoDocumento;
 
     @Column(name = "banco", length = 100)
     private String banco;
 
-    @Column(name = "tipo_cuenta", length = 50)
+    @Column(name = "tipocuenta", length = 50)
     private String tipoCuenta;
 
-    @Column(name = "numero_cuenta", length = 100)
+    @Column(name = "numerocuenta", length = 100)
     private String numeroCuenta;
 
     // Constructor vacío
@@ -55,11 +55,20 @@ public class VendedorDetalles {
     // Constructor con usuario
     public VendedorDetalles(Usuario usuario) {
         this.usuario = usuario;
-        this.usuarioId = usuario.getUsuarioId();
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
         this.verificado = false;
     }
 
-    // Getters y Setters (similares a las otras entidades)
+    @PrePersist
+    public void prePersist() {
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
+    }
+
+    // Getters y Setters
     public Long getUsuarioId() {
         return usuarioId;
     }
@@ -79,13 +88,12 @@ public class VendedorDetalles {
         }
     }
 
-    // ... resto de getters y setters
-    public String getRfc() {
-        return rfc;
+    public String getRut() {
+        return rut;
     }
 
-    public void setRfc(String rfc) {
-        this.rfc = rfc;
+    public void setRut(String rut) {
+        this.rut = rut;
     }
 
     public String getEspecialidad() {

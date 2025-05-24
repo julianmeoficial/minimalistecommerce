@@ -1,41 +1,61 @@
-html, body, #root {
-  height: 100%;
-  margin: 0;
+/* Estilos para páginas temporales */
+.temp-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: calc(100vh - 200px);
+  background-color: #121212;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+}
+
+.temp-page h1 {
+  color: #2d8cf0;
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.temp-page p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  color: #e3e3e3;
+}
+
+.temp-page code {
+  background-color: #1a1a1a;
+  color: #B68865;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Fira Code', monospace;
+}
+
+.features, .roles, .status {
+  background-color: #1a1a1a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  border-left: 4px solid #2d8cf0;
+}
+
+.features h3, .roles h3 {
+  color: #2d8cf0;
+  margin-bottom: 1rem;
+}
+
+.features ul, .roles ul {
+  list-style: none;
   padding: 0;
-  overflow-x: hidden;
-  box-sizing: border-box;
 }
 
-*, *::before, *::after {
-  box-sizing: inherit;
+.features li, .roles li {
+  padding: 0.5rem 0;
+  color: #e3e3e3;
 }
 
-/* Breakpoints para diferentes tamaños de pantalla */
-@media (max-height: 768px) {
-  .card {
-    min-height: 250px;
-  }
-
-  main {
-    max-height: calc(100vh - 200px);
-  }
-}
-
-@media (max-height: 600px) {
-  .card {
-    min-height: 200px;
-  }
-
-  .loader-title {
-    font-size: 2rem;
-  }
-
-  .loader-subtitle {
-    font-size: 1rem;
-    margin-bottom: 2rem;
-  }
-
-  main {
-    max-height: calc(100vh - 180px);
-  }
+.status p {
+  font-weight: 500;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #333;
 }

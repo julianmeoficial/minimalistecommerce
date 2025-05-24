@@ -28,6 +28,7 @@ public class VendedorDetallesController {
             @RequestBody VendedorDetallesDTO detallesDTO
     ) {
         VendedorDetalles detalles = new VendedorDetalles();
+        detalles.setRut(detallesDTO.getRut());
         detalles.setNumRegistroFiscal(detallesDTO.getNumRegistroFiscal());
         detalles.setEspecialidad(detallesDTO.getEspecialidad());
         detalles.setDireccionComercial(detallesDTO.getDireccionComercial());

@@ -44,88 +44,112 @@ public class UsuarioService {
     public Usuario registrarUsuario(RegistroDTO registroDTO) {
         log.info("Registrando usuario: {}", registroDTO.getEmail());
 
+        // Verificar si el email ya existe
+        if (usuarioRepository.existsByEmail(registroDTO.getEmail())) {
+            throw new IllegalArgumentException("El email ya está registrado: " + registroDTO.getEmail());
+        }
+
+        // Obtener el rol
+        RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
+                .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con id: " + registroDTO.getRolId()));
+
+        // Crear usuario
+        Usuario usuario = new Usuario(
+                registroDTO.getNombre(),
+                registroDTO.getEmail(),
+                passwordEncoder.encode(registroDTO.getPassword()),
+                rol
+        );
+
+        // CRÍTICO: Guardar usuario PRIMERO para obtener el ID
+        usuario = usuarioRepository.saveAndFlush(usuario);
+        log.info("Usuario guardado con ID: {}", usuario.getUsuarioId());
+
+        // Ahora crear detalles específicos según el rol CON el ID ya asignado
         try {
-            // Verificar que el email no esté en uso
-            if (usuarioRepository.existsByEmail(registroDTO.getEmail())) {
-                throw new IllegalArgumentException("El email ya está registrado");
-            }
-
-            // Buscar el rol de usuario
-            RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con id: " + registroDTO.getRolId()));
-
-            // Crear y guardar el nuevo usuario
-            Usuario usuario = new Usuario(
-                    registroDTO.getNombre(),
-                    registroDTO.getEmail(),
-                    passwordEncoder.encode(registroDTO.getPassword()),
-                    rol
-            );
-
-            usuario.setCreatedat(LocalDateTime.now());
-            usuario.setUpdatedat(LocalDateTime.now());
-            usuario.setActivo(true);
-
-            usuario = usuarioRepository.save(usuario);
-            log.info("Usuario guardado con ID: {}", usuario.getUsuarioId());
-
-            // Crear y guardar detalles específicos según el rol
             String rolNombre = rol.getNombre();
-            if ("ADMINISTRADOR".equals(rolNombre)) {
-                crearDetallesAdmin(usuario, registroDTO);
-            } else if ("COMPRADOR".equals(rolNombre)) {
+            log.info("Creando detalles para rol: {}", rolNombre);
+
+            if ("COMPRADOR".equals(rolNombre)) {
                 crearDetallesComprador(usuario, registroDTO);
             } else if ("VENDEDOR".equals(rolNombre)) {
                 crearDetallesVendedor(usuario, registroDTO);
+            } else if ("ADMINISTRADOR".equals(rolNombre)) {
+                crearDetallesAdmin(usuario, registroDTO);
+            } else {
+                log.warn("Rol no reconocido para crear detalles: {}", rolNombre);
             }
-
-            log.info("Usuario y detalles creados exitosamente para: {}", usuario.getEmail());
-            return usuario;
-
         } catch (Exception e) {
-            log.error("Error registrando usuario {}: {}", registroDTO.getEmail(), e.getMessage());
-            throw e;
+            log.error("Error creando detalles para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
+            // El usuario ya está guardado, pero falló la creación de detalles
+            // En caso de error, eliminamos el usuario para mantener la integridad
+            usuarioRepository.delete(usuario);
+            throw new RuntimeException("Error al crear detalles específicos del rol: " + e.getMessage(), e);
         }
+
+        log.info("Usuario registrado exitosamente: {}", usuario.getEmail());
+        return usuario;
     }
 
     private void crearDetallesComprador(Usuario usuario, RegistroDTO registroDTO) {
         try {
             log.info("Creando detalles de comprador para usuario ID: {}", usuario.getUsuarioId());
 
-            // ✅ CRÍTICO: Crear la instancia con el usuario ya establecido
-            CompradorDetalles compradorDetalles = new CompradorDetalles(usuario);
+            // Verificar que el usuario tenga ID
+            if (usuario.getUsuarioId() == null) {
+                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
+            }
+
+            // Verificar si ya existen detalles para este usuario
+            if (compradorDetallesRepository.existsById(usuario.getUsuarioId())) {
+                log.warn("Ya existen detalles de comprador para el usuario ID: {}", usuario.getUsuarioId());
+                return;
+            }
+
+            CompradorDetalles compradorDetalles = new CompradorDetalles();
+            // CRÍTICO: Establecer el ID manualmente
+            compradorDetalles.setUsuarioId(usuario.getUsuarioId());
+            compradorDetalles.setUsuario(usuario);
 
             // Establecer datos del registro
-            compradorDetalles.setDireccionEnvio(registroDTO.getDireccionEnvio());
-            compradorDetalles.setTelefono(registroDTO.getTelefono());
+            if (registroDTO.getFechaNacimiento() != null) {
+                compradorDetalles.setFechaNacimiento(registroDTO.getFechaNacimiento());
+            }
+            if (registroDTO.getPreferencias() != null) {
+                compradorDetalles.setPreferencias(registroDTO.getPreferencias());
+            }
+            if (registroDTO.getDireccionEnvio() != null) {
+                compradorDetalles.setDireccionEnvio(registroDTO.getDireccionEnvio());
+            }
+            if (registroDTO.getTelefono() != null) {
+                compradorDetalles.setTelefono(registroDTO.getTelefono());
+            }
+            if (registroDTO.getDireccionAlternativa() != null) {
+                compradorDetalles.setDireccionAlternativa(registroDTO.getDireccionAlternativa());
+            }
+            if (registroDTO.getTelefonoAlternativo() != null) {
+                compradorDetalles.setTelefonoAlternativo(registroDTO.getTelefonoAlternativo());
+            }
 
-            // Guardar los detalles
-            compradorDetallesRepository.save(compradorDetalles);
-            log.info("Detalles de comprador creados exitosamente para usuario: {}", usuario.getUsuarioId());
+            // Establecer valores de notificaciones
+            compradorDetalles.setNotificacionEmail(
+                    registroDTO.getNotificacionEmail() != null ? registroDTO.getNotificacionEmail() : true
+            );
+            compradorDetalles.setNotificacionSms(
+                    registroDTO.getNotificacionSms() != null ? registroDTO.getNotificacionSms() : false
+            );
+
+            // Establecer valores predeterminados
+            compradorDetalles.setCalificacion(new java.math.BigDecimal("5.00"));
+            compradorDetalles.setTotalCompras(0);
+
+            CompradorDetalles savedDetails = compradorDetallesRepository.save(compradorDetalles);
+            log.info("Detalles de comprador creados exitosamente para usuario: {} con ID: {}", 
+                    usuario.getEmail(), savedDetails.getUsuarioId());
 
         } catch (Exception e) {
-            log.error("Error creando detalles de comprador para usuario {}: {}", usuario.getUsuarioId(), e.getMessage());
+            log.error("Error creando detalles de comprador para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
             throw new RuntimeException("Error al crear detalles del comprador: " + e.getMessage(), e);
-        }
-    }
-
-    private void crearDetallesAdmin(Usuario usuario, RegistroDTO registroDTO) {
-        try {
-            log.info("Creando detalles de administrador para usuario ID: {}", usuario.getUsuarioId());
-
-            AdminDetalles adminDetalles = new AdminDetalles();
-            adminDetalles.setUsuario(usuario);
-            adminDetalles.setUsuarioId(usuario.getUsuarioId());
-            adminDetalles.setRegion(registroDTO.getRegion() != null ? registroDTO.getRegion() : "Default");
-            adminDetalles.setNivelAcceso(registroDTO.getNivelAcceso() != null ? registroDTO.getNivelAcceso() : "BASICO");
-            adminDetalles.setUltimaAccion("Registro de cuenta");
-            adminDetalles.setUltimoLogin(LocalDateTime.now());
-
-            adminDetallesRepository.save(adminDetalles);
-            log.info("Detalles de administrador creados para usuario: {}", usuario.getUsuarioId());
-        } catch (Exception e) {
-            log.error("Error creando detalles de administrador: {}", e.getMessage());
-            throw new RuntimeException("Error al crear detalles del administrador: " + e.getMessage(), e);
         }
     }
 
@@ -133,20 +157,106 @@ public class UsuarioService {
         try {
             log.info("Creando detalles de vendedor para usuario ID: {}", usuario.getUsuarioId());
 
-            VendedorDetalles vendedorDetalles = new VendedorDetalles();
-            vendedorDetalles.setUsuario(usuario);
-            vendedorDetalles.setUsuarioId(usuario.getUsuarioId());
-            vendedorDetalles.setNumRegistroFiscal(registroDTO.getNumRegistroFiscal());
-            vendedorDetalles.setEspecialidad(registroDTO.getEspecialidad());
-            vendedorDetalles.setDireccionComercial(registroDTO.getDireccionComercial());
-            vendedorDetalles.setVerificado(false);
-            vendedorDetalles.setFechaVerificacion(null);
+            // Verificar que el usuario tenga ID
+            if (usuario.getUsuarioId() == null) {
+                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
+            }
 
-            vendedorDetallesRepository.save(vendedorDetalles);
-            log.info("Detalles de vendedor creados para usuario: {}", usuario.getUsuarioId());
+            // Verificar si ya existen detalles para este usuario
+            if (vendedorDetallesRepository.existsById(usuario.getUsuarioId())) {
+                log.warn("Ya existen detalles de vendedor para el usuario ID: {}", usuario.getUsuarioId());
+                return;
+            }
+
+            VendedorDetalles vendedorDetalles = new VendedorDetalles();
+            // CRÍTICO: Establecer el ID manualmente
+            vendedorDetalles.setUsuarioId(usuario.getUsuarioId());
+            vendedorDetalles.setUsuario(usuario);
+
+            // Establecer datos del registro
+            if (registroDTO.getRut() != null) {
+                vendedorDetalles.setRut(registroDTO.getRut());
+            }
+            if (registroDTO.getEspecialidad() != null) {
+                vendedorDetalles.setEspecialidad(registroDTO.getEspecialidad());
+            }
+            if (registroDTO.getDireccionComercial() != null) {
+                vendedorDetalles.setDireccionComercial(registroDTO.getDireccionComercial());
+            }
+            if (registroDTO.getNumRegistroFiscal() != null) {
+                vendedorDetalles.setNumRegistroFiscal(registroDTO.getNumRegistroFiscal());
+            }
+            if (registroDTO.getDocumentoComercial() != null) {
+                vendedorDetalles.setDocumentoComercial(registroDTO.getDocumentoComercial());
+            }
+            if (registroDTO.getTipoDocumento() != null) {
+                vendedorDetalles.setTipoDocumento(registroDTO.getTipoDocumento());
+            }
+            if (registroDTO.getBanco() != null) {
+                vendedorDetalles.setBanco(registroDTO.getBanco());
+            }
+            if (registroDTO.getTipoCuenta() != null) {
+                vendedorDetalles.setTipoCuenta(registroDTO.getTipoCuenta());
+            }
+            if (registroDTO.getNumeroCuenta() != null) {
+                vendedorDetalles.setNumeroCuenta(registroDTO.getNumeroCuenta());
+            }
+
+            // Valores predeterminados
+            vendedorDetalles.setVerificado(false);
+
+            VendedorDetalles savedDetails = vendedorDetallesRepository.save(vendedorDetalles);
+            log.info("Detalles de vendedor creados exitosamente para usuario: {} con ID: {}", 
+                    usuario.getEmail(), savedDetails.getUsuarioId());
+
         } catch (Exception e) {
-            log.error("Error creando detalles de vendedor: {}", e.getMessage());
+            log.error("Error creando detalles de vendedor para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
             throw new RuntimeException("Error al crear detalles del vendedor: " + e.getMessage(), e);
+        }
+    }
+
+    private void crearDetallesAdmin(Usuario usuario, RegistroDTO registroDTO) {
+        try {
+            log.info("Creando detalles de administrador para usuario ID: {}", usuario.getUsuarioId());
+
+            // Verificar que el usuario tenga ID
+            if (usuario.getUsuarioId() == null) {
+                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
+            }
+
+            // Verificar si ya existen detalles para este usuario
+            if (adminDetallesRepository.existsById(usuario.getUsuarioId())) {
+                log.warn("Ya existen detalles de administrador para el usuario ID: {}", usuario.getUsuarioId());
+                return;
+            }
+
+            AdminDetalles adminDetalles = new AdminDetalles();
+            // CRÍTICO: Establecer el ID manualmente
+            adminDetalles.setUsuarioId(usuario.getUsuarioId());
+            adminDetalles.setUsuario(usuario);
+
+            // Establecer datos del registro
+            if (registroDTO.getRegion() != null) {
+                adminDetalles.setRegion(registroDTO.getRegion());
+            }
+            if (registroDTO.getNivelAcceso() != null) {
+                adminDetalles.setNivelAcceso(registroDTO.getNivelAcceso());
+            }
+            if (registroDTO.getIpAcceso() != null) {
+                adminDetalles.setIpAcceso(registroDTO.getIpAcceso());
+            }
+
+            // Valores predeterminados
+            adminDetalles.setUltimaAccion("Usuario creado");
+            adminDetalles.setUltimoLogin(java.time.LocalDateTime.now());
+
+            AdminDetalles savedDetails = adminDetallesRepository.save(adminDetalles);
+            log.info("Detalles de administrador creados exitosamente para usuario: {} con ID: {}", 
+                    usuario.getEmail(), savedDetails.getUsuarioId());
+
+        } catch (Exception e) {
+            log.error("Error creando detalles de administrador para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
+            throw new RuntimeException("Error al crear detalles del administrador: " + e.getMessage(), e);
         }
     }
 

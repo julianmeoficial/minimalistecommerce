@@ -8,7 +8,10 @@ import java.util.Optional;
 
 @Repository
 public interface CompradorDetallesRepository extends JpaRepository<CompradorDetalles, Long> {
+
     Optional<CompradorDetalles> findByUsuarioId(Long usuarioId);
+
     boolean existsByUsuarioId(Long usuarioId);
+
     void deleteByUsuarioId(Long usuarioId);
 }

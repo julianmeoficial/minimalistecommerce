@@ -4,6 +4,7 @@ import com.digital.mecommerces.dto.AuthResponseDTO;
 import com.digital.mecommerces.dto.LoginDTO;
 import com.digital.mecommerces.dto.RegistroDTO;
 import com.digital.mecommerces.exception.BusinessException;
+import com.digital.mecommerces.exception.ResourceNotFoundException;
 import com.digital.mecommerces.model.RolUsuario;
 import com.digital.mecommerces.model.Usuario;
 import com.digital.mecommerces.repository.RolUsuarioRepository;
@@ -29,6 +30,7 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @Slf4j
 public class AuthController {
+
     private final AuthenticationManager authenticationManager;
     private final UsuarioService usuarioService;
     private final JwtTokenProvider tokenProvider;
@@ -52,6 +54,17 @@ public class AuthController {
         try {
             log.info("Intento de login para email: {}", loginDTO.getEmail());
 
+            // Verificar que el usuario existe antes de la autenticación
+            Usuario usuario = usuarioRepository.findByEmail(loginDTO.getEmail())
+                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+            // Verificar que el usuario esté activo
+            if (!usuario.getActivo()) {
+                log.warn("Intento de login con usuario inactivo: {}", loginDTO.getEmail());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new AuthResponseDTO("Usuario inactivo", false));
+            }
+
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassword())
             );
@@ -61,11 +74,8 @@ public class AuthController {
             String token = tokenProvider.generateToken(authentication.getName());
 
             // Actualizar último login
-            Usuario usuario = usuarioRepository.findByEmail(loginDTO.getEmail()).orElse(null);
-            if (usuario != null) {
-                usuario.setUltimoLogin(LocalDateTime.now());
-                usuarioRepository.save(usuario);
-            }
+            usuario.setUltimoLogin(LocalDateTime.now());
+            usuarioRepository.save(usuario);
 
             Map<String, Object> response = new HashMap<>();
             response.put("mensaje", "Usuario autenticado exitosamente");
@@ -86,7 +96,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new AuthResponseDTO("Credenciales inválidas", false));
         } catch (Exception e) {
-            log.error("Error durante el login: {}", e.getMessage());
+            log.error("Error durante el login: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new AuthResponseDTO("Error interno del servidor", false));
         }
@@ -97,15 +107,22 @@ public class AuthController {
         try {
             log.info("Intento de registro para email: {}", registroDTO.getEmail());
 
-            // Verificar que el rol existe
-            RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
-                    .orElseThrow(() -> new BusinessException("Rol no válido", "INVALID_ROLE"));
-
             // Verificar que el email no esté registrado
             if (usuarioRepository.existsByEmail(registroDTO.getEmail())) {
                 log.warn("Intento de registro con email ya existente: {}", registroDTO.getEmail());
                 return ResponseEntity.badRequest()
                         .body(new AuthResponseDTO("Este email ya está registrado", false));
+            }
+
+            // Verificar que el rol existe - CORRIGIENDO EL ERROR
+            RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con ID: " + registroDTO.getRolId()));
+
+            // Validar que el rolId sea válido (1=ADMIN, 2=COMPRADOR, 3=VENDEDOR)
+            if (registroDTO.getRolId() == null || registroDTO.getRolId() < 1 || registroDTO.getRolId() > 3) {
+                log.warn("Intento de registro con rol inválido: {}", registroDTO.getRolId());
+                return ResponseEntity.badRequest()
+                        .body(new AuthResponseDTO("Rol inválido. Debe ser 1, 2 o 3", false));
             }
 
             // Registrar el usuario
@@ -125,12 +142,16 @@ public class AuthController {
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
-        } catch (BusinessException e) {
-            log.error("Error de negocio durante el registro: {}", e.getMessage());
+        } catch (ResourceNotFoundException e) {
+            log.error("Rol no encontrado durante el registro: {}", e.getMessage());
             return ResponseEntity.badRequest()
-                    .body(new AuthResponseDTO("Error en el registro: " + e.getMessage(), false));
+                    .body(new AuthResponseDTO("Rol no válido: " + e.getMessage(), false));
+        } catch (IllegalArgumentException e) {
+            log.error("Argumento inválido durante el registro: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new AuthResponseDTO("Error en los datos: " + e.getMessage(), false));
         } catch (Exception e) {
-            log.error("Error durante el registro: {}", e.getMessage());
+            log.error("Error durante el registro: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new AuthResponseDTO("Error interno del servidor", false));
         }
@@ -139,6 +160,8 @@ public class AuthController {
     @GetMapping("/validate")
     public ResponseEntity<?> validateToken(@RequestHeader("Authorization") String token) {
         try {
+            log.debug("Validando token: {}", token.substring(0, Math.min(token.length(), 20)) + "...");
+
             if (token.startsWith("Bearer ")) {
                 token = token.substring(7);
             }
@@ -165,5 +188,14 @@ public class AuthController {
             log.error("Error validando token: {}", e.getMessage());
             return ResponseEntity.ok(Map.of("valid", false));
         }
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("service", "Auth Service");
+        response.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.ok(response);
     }
 }

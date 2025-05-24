@@ -1,14 +1,15 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "producto_imagen")
+@Table(name = "productoimagen")
 public class ProductoImagen {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "imagen_id", nullable = false)
+    @Column(name = "imagenid", nullable = false)
     private Long imagenId;
 
     @Column(name = "url", nullable = false)
@@ -17,15 +18,25 @@ public class ProductoImagen {
     @Column(name = "descripcion")
     private String descripcion;
 
-    @Column(name = "es_principal")
-    private Boolean esPrincipal;
+    @Column(name = "esprincipal")
+    private Boolean esPrincipal = false;
 
     @ManyToOne
-    @JoinColumn(name = "producto_id", nullable = false)
+    @JoinColumn(name = "productoid", nullable = false)
     private Producto producto;
+
+    @Column(name = "tipo")
+    private String tipo;
+
+    @Column(name = "tamanio")
+    private Integer tamanio;
+
+    @Column(name = "createdat")
+    private LocalDateTime createdat;
 
     // Constructor vacío
     public ProductoImagen() {
+        this.createdat = LocalDateTime.now();
     }
 
     // Constructor con parámetros
@@ -34,6 +45,7 @@ public class ProductoImagen {
         this.descripcion = descripcion;
         this.esPrincipal = esPrincipal;
         this.producto = producto;
+        this.createdat = LocalDateTime.now();
     }
 
     // Getters y Setters
@@ -75,5 +87,29 @@ public class ProductoImagen {
 
     public void setProducto(Producto producto) {
         this.producto = producto;
+    }
+
+    public String getTipo() {
+        return tipo;
+    }
+
+    public void setTipo(String tipo) {
+        this.tipo = tipo;
+    }
+
+    public Integer getTamanio() {
+        return tamanio;
+    }
+
+    public void setTamanio(Integer tamanio) {
+        this.tamanio = tamanio;
+    }
+
+    public LocalDateTime getCreatedat() {
+        return createdat;
+    }
+
+    public void setCreatedat(LocalDateTime createdat) {
+        this.createdat = createdat;
     }
 }

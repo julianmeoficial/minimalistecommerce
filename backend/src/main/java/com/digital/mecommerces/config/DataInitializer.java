@@ -9,7 +9,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Configuration
 @Slf4j
@@ -34,62 +36,104 @@ public class DataInitializer {
             try {
                 log.info("Iniciando carga de datos de prueba...");
 
-                // Crear roles si no existen
+                // ========================================
+                // CREAR ROLES SI NO EXISTEN
+                // ========================================
                 RolUsuario rolAdmin = rolUsuarioRepository.findByNombre("ADMINISTRADOR")
                         .orElseGet(() -> {
-                            RolUsuario nuevoRol = new RolUsuario("ADMINISTRADOR", "Administrador del sistema con acceso total");
+                            RolUsuario nuevoRol = new RolUsuario("ADMINISTRADOR", "Usuario administrador del sistema");
                             return rolUsuarioRepository.save(nuevoRol);
                         });
 
                 RolUsuario rolComprador = rolUsuarioRepository.findByNombre("COMPRADOR")
                         .orElseGet(() -> {
-                            RolUsuario nuevoRol = new RolUsuario("COMPRADOR", "Usuario comprador con acceso a productos y carrito");
+                            RolUsuario nuevoRol = new RolUsuario("COMPRADOR", "Usuario comprador");
                             return rolUsuarioRepository.save(nuevoRol);
                         });
 
                 RolUsuario rolVendedor = rolUsuarioRepository.findByNombre("VENDEDOR")
                         .orElseGet(() -> {
-                            RolUsuario nuevoRol = new RolUsuario("VENDEDOR", "Usuario vendedor con acceso a gestión de productos");
+                            RolUsuario nuevoRol = new RolUsuario("VENDEDOR", "Usuario vendedor");
                             return rolUsuarioRepository.save(nuevoRol);
                         });
 
-                // Crear permisos si no existen
+                // ========================================
+                // CREAR PERMISOS SI NO EXISTEN
+                // ========================================
                 Permiso permisoAdminTotal = permisoRepository.findByCodigo("ADMIN_TOTAL")
-                        .orElseGet(() -> permisoRepository.save(new Permiso("ADMIN_TOTAL", "Administración total del sistema", 0)));
+                        .orElseGet(() -> permisoRepository.save(new Permiso("ADMIN_TOTAL", "Acceso total de administrador", 1)));
 
                 Permiso permisoVenderProductos = permisoRepository.findByCodigo("VENDER_PRODUCTOS")
-                        .orElseGet(() -> permisoRepository.save(new Permiso("VENDER_PRODUCTOS", "Permiso para vender productos", 1)));
+                        .orElseGet(() -> permisoRepository.save(new Permiso("VENDER_PRODUCTOS", "Permiso para vender productos", 2)));
 
                 Permiso permisoComprarProductos = permisoRepository.findByCodigo("COMPRAR_PRODUCTOS")
-                        .orElseGet(() -> permisoRepository.save(new Permiso("COMPRAR_PRODUCTOS", "Permiso para comprar productos", 1)));
+                        .orElseGet(() -> permisoRepository.save(new Permiso("COMPRAR_PRODUCTOS", "Permiso para comprar productos", 3)));
 
                 Permiso permisoGestionarUsuarios = permisoRepository.findByCodigo("GESTIONAR_USUARIOS")
-                        .orElseGet(() -> permisoRepository.save(new Permiso("GESTIONAR_USUARIOS", "Permiso para gestionar usuarios", 0)));
+                        .orElseGet(() -> permisoRepository.save(new Permiso("GESTIONAR_USUARIOS", "Gestionar usuarios del sistema", 4)));
 
                 Permiso permisoGestionarCategorias = permisoRepository.findByCodigo("GESTIONAR_CATEGORIAS")
-                        .orElseGet(() -> permisoRepository.save(new Permiso("GESTIONAR_CATEGORIAS", "Permiso para gestionar categorías", 1)));
+                        .orElseGet(() -> permisoRepository.save(new Permiso("GESTIONAR_CATEGORIAS", "Gestionar categorías", 5)));
 
-                // Asignar permisos a roles usando el método correcto
+                // ========================================
+                // ASIGNAR PERMISOS A ROLES
+                // ========================================
                 if (rolPermisoRepository.findByRolId(rolAdmin.getRolId()).isEmpty()) {
-                    rolPermisoRepository.save(new RolPermiso(rolAdmin, permisoAdminTotal));
-                    rolPermisoRepository.save(new RolPermiso(rolAdmin, permisoVenderProductos));
-                    rolPermisoRepository.save(new RolPermiso(rolAdmin, permisoComprarProductos));
-                    rolPermisoRepository.save(new RolPermiso(rolAdmin, permisoGestionarUsuarios));
-                    rolPermisoRepository.save(new RolPermiso(rolAdmin, permisoGestionarCategorias));
+                    // Crear relaciones para ADMINISTRADOR
+                    RolPermiso rpAdmin1 = new RolPermiso(rolAdmin.getRolId(), permisoAdminTotal.getPermisoId());
+                    rpAdmin1.setRol(rolAdmin);
+                    rpAdmin1.setPermiso(permisoAdminTotal);
+                    rpAdmin1.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpAdmin1);
+
+                    RolPermiso rpAdmin2 = new RolPermiso(rolAdmin.getRolId(), permisoVenderProductos.getPermisoId());
+                    rpAdmin2.setRol(rolAdmin);
+                    rpAdmin2.setPermiso(permisoVenderProductos);
+                    rpAdmin2.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpAdmin2);
+
+                    RolPermiso rpAdmin3 = new RolPermiso(rolAdmin.getRolId(), permisoComprarProductos.getPermisoId());
+                    rpAdmin3.setRol(rolAdmin);
+                    rpAdmin3.setPermiso(permisoComprarProductos);
+                    rpAdmin3.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpAdmin3);
+
+                    RolPermiso rpAdmin4 = new RolPermiso(rolAdmin.getRolId(), permisoGestionarUsuarios.getPermisoId());
+                    rpAdmin4.setRol(rolAdmin);
+                    rpAdmin4.setPermiso(permisoGestionarUsuarios);
+                    rpAdmin4.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpAdmin4);
+
+                    RolPermiso rpAdmin5 = new RolPermiso(rolAdmin.getRolId(), permisoGestionarCategorias.getPermisoId());
+                    rpAdmin5.setRol(rolAdmin);
+                    rpAdmin5.setPermiso(permisoGestionarCategorias);
+                    rpAdmin5.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpAdmin5);
+
                     log.info("Permisos asignados al rol ADMINISTRADOR");
                 }
 
                 if (rolPermisoRepository.findByRolId(rolVendedor.getRolId()).isEmpty()) {
-                    rolPermisoRepository.save(new RolPermiso(rolVendedor, permisoVenderProductos));
+                    RolPermiso rpVendedor = new RolPermiso(rolVendedor.getRolId(), permisoVenderProductos.getPermisoId());
+                    rpVendedor.setRol(rolVendedor);
+                    rpVendedor.setPermiso(permisoVenderProductos);
+                    rpVendedor.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpVendedor);
                     log.info("Permisos asignados al rol VENDEDOR");
                 }
 
                 if (rolPermisoRepository.findByRolId(rolComprador.getRolId()).isEmpty()) {
-                    rolPermisoRepository.save(new RolPermiso(rolComprador, permisoComprarProductos));
+                    RolPermiso rpComprador = new RolPermiso(rolComprador.getRolId(), permisoComprarProductos.getPermisoId());
+                    rpComprador.setRol(rolComprador);
+                    rpComprador.setPermiso(permisoComprarProductos);
+                    rpComprador.setCreatedby("SYSTEM");
+                    rolPermisoRepository.save(rpComprador);
                     log.info("Permisos asignados al rol COMPRADOR");
                 }
 
-                // Crear categorías de productos
+                // ========================================
+                // CREAR CATEGORÍAS DE PRODUCTOS
+                // ========================================
                 CategoriaProducto categoriaElectronica = categoriaProductoRepository.findByNombre("Electrónica")
                         .orElseGet(() -> {
                             CategoriaProducto nuevaCategoria = new CategoriaProducto();
@@ -127,6 +171,7 @@ public class DataInitializer {
                             nuevaCategoria.setNombre("Laptops");
                             nuevaCategoria.setDescripcion("Computadoras portátiles");
                             nuevaCategoria.setCategoriaPadre(categoriaElectronica);
+                            nuevaCategoria.setCategoriapadreId(categoriaElectronica.getCategoriaId());
                             nuevaCategoria.setActivo(true);
                             nuevaCategoria.setSlug("laptops");
                             return categoriaProductoRepository.save(nuevaCategoria);
@@ -137,24 +182,28 @@ public class DataInitializer {
                             CategoriaProducto nuevaCategoria = new CategoriaProducto();
                             nuevaCategoria.setNombre("Smartphones");
                             nuevaCategoria.setDescripcion("Teléfonos inteligentes");
+                            nuevaCategoria.setCategoriaPadre(categoriaElectronica);
                             nuevaCategoria.setCategoriapadreId(categoriaElectronica.getCategoriaId());
                             nuevaCategoria.setActivo(true);
                             nuevaCategoria.setSlug("smartphones");
                             return categoriaProductoRepository.save(nuevaCategoria);
                         });
 
-                // Crear usuarios de prueba si no existen
+                // ========================================
+                // CREAR USUARIOS DE PRUEBA SI NO EXISTEN
+                // ========================================
                 if (!usuarioRepository.existsByEmail("admin@mecommerces.com")) {
                     Usuario admin = new Usuario("Administrador", "admin@mecommerces.com",
                             passwordEncoder.encode("admin123"), rolAdmin);
                     admin = usuarioRepository.save(admin);
 
-                    AdminDetalles adminDetalles = new AdminDetalles();
-                    adminDetalles.setUsuario(admin);
+                    AdminDetalles adminDetalles = new AdminDetalles(admin);
                     adminDetalles.setRegion("Global");
                     adminDetalles.setNivelAcceso("SUPER");
                     adminDetalles.setUltimaAccion("Registro inicial del sistema");
+                    adminDetalles.setUltimoLogin(LocalDateTime.now());
                     adminDetallesRepository.save(adminDetalles);
+
                     log.info("Usuario administrador creado: admin@mecommerces.com");
                 }
 
@@ -163,12 +212,16 @@ public class DataInitializer {
                             passwordEncoder.encode("comprador123"), rolComprador);
                     comprador = usuarioRepository.save(comprador);
 
-                    CompradorDetalles compradorDetalles = new CompradorDetalles();
-                    compradorDetalles.setUsuario(comprador);
-                    compradorDetalles.setFechaNacimiento(LocalDate.of(1990, 1, 1));
+                    CompradorDetalles compradorDetalles = new CompradorDetalles(comprador);
+                    compradorDetalles.setFechaNacimiento(LocalDate.of(1990, 1, 15));
                     compradorDetalles.setDireccionEnvio("Calle Principal 123, Ciudad");
                     compradorDetalles.setTelefono("555-123-4567");
+                    compradorDetalles.setNotificacionEmail(true);
+                    compradorDetalles.setNotificacionSms(false);
+                    compradorDetalles.setCalificacion(new BigDecimal("5.00"));
+                    compradorDetalles.setTotalCompras(0);
                     compradorDetallesRepository.save(compradorDetalles);
+
                     log.info("Usuario comprador creado: comprador@mecommerces.com");
                 }
 
@@ -177,24 +230,30 @@ public class DataInitializer {
                             passwordEncoder.encode("vendedor123"), rolVendedor);
                     vendedor = usuarioRepository.save(vendedor);
 
-                    VendedorDetalles vendedorDetalles = new VendedorDetalles();
-                    vendedorDetalles.setUsuario(vendedor);
+                    VendedorDetalles vendedorDetalles = new VendedorDetalles(vendedor);
+                    vendedorDetalles.setRut("12345678-9");
                     vendedorDetalles.setNumRegistroFiscal("VEND12345678");
                     vendedorDetalles.setEspecialidad("Electrónica");
                     vendedorDetalles.setDireccionComercial("Avenida Comercial 456");
+                    vendedorDetalles.setVerificado(false);
                     vendedorDetallesRepository.save(vendedorDetalles);
+
                     log.info("Usuario vendedor creado: vendedor@mecommerces.com");
                 }
 
-                // Obtener el usuario vendedor para asociarlo a los productos
+                // ========================================
+                // OBTENER EL USUARIO VENDEDOR PARA PRODUCTOS
+                // ========================================
                 Usuario vendedorObj = usuarioRepository.findByEmail("vendedor@mecommerces.com")
                         .orElseThrow(() -> new RuntimeException("Usuario vendedor no encontrado"));
 
-                // Crear productos de prueba
+                // ========================================
+                // CREAR PRODUCTOS DE PRUEBA
+                // ========================================
                 if (productoRepository.findByProductoNombre("Laptop HP Pavilion").isEmpty()) {
                     Producto laptop = new Producto();
                     laptop.setProductoNombre("Laptop HP Pavilion");
-                    laptop.setDescripcion("Laptop con procesador Intel Core i5, 8GB RAM, 512GB SSD");
+                    laptop.setDescripcion("Laptop con procesador Intel Core i5, 8GB RAM, 256GB SSD");
                     laptop.setPrecio(899.99);
                     laptop.setStock(10);
                     laptop.setCategoria(categoriaElectronica);
@@ -209,14 +268,17 @@ public class DataInitializer {
                     laptopImagen.setDescripcion("Imagen principal de laptop");
                     laptopImagen.setEsPrincipal(true);
                     laptopImagen.setProducto(laptop);
+                    laptopImagen.setTipo("imagen");
+                    laptopImagen.setTamanio(1024);
                     productoImagenRepository.save(laptopImagen);
+
                     log.info("Producto creado: Laptop HP Pavilion");
                 }
 
                 if (productoRepository.findByProductoNombre("Smartphone Samsung Galaxy").isEmpty()) {
                     Producto smartphone = new Producto();
                     smartphone.setProductoNombre("Smartphone Samsung Galaxy");
-                    smartphone.setDescripcion("Smartphone con pantalla AMOLED de 6.5\", 128GB almacenamiento");
+                    smartphone.setDescripcion("Smartphone con pantalla AMOLED, 128GB almacenamiento");
                     smartphone.setPrecio(699.99);
                     smartphone.setStock(15);
                     smartphone.setCategoria(categoriaElectronica);
@@ -230,7 +292,10 @@ public class DataInitializer {
                     smartphoneImagen.setDescripcion("Imagen principal de smartphone");
                     smartphoneImagen.setEsPrincipal(true);
                     smartphoneImagen.setProducto(smartphone);
+                    smartphoneImagen.setTipo("imagen");
+                    smartphoneImagen.setTamanio(800);
                     productoImagenRepository.save(smartphoneImagen);
+
                     log.info("Producto creado: Smartphone Samsung Galaxy");
                 }
 
@@ -251,7 +316,10 @@ public class DataInitializer {
                     camisetaImagen.setDescripcion("Imagen principal de camiseta");
                     camisetaImagen.setEsPrincipal(true);
                     camisetaImagen.setProducto(camiseta);
+                    camisetaImagen.setTipo("imagen");
+                    camisetaImagen.setTamanio(600);
                     productoImagenRepository.save(camisetaImagen);
+
                     log.info("Producto creado: Camiseta Algodón");
                 }
 

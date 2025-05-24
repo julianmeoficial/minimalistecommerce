@@ -1,12 +1,12 @@
 package com.digital.mecommerces.service;
 
 import com.digital.mecommerces.exception.ResourceNotFoundException;
+import com.digital.mecommerces.model.Permiso;
 import com.digital.mecommerces.model.RolPermiso;
 import com.digital.mecommerces.model.RolUsuario;
-import com.digital.mecommerces.model.Permiso;
+import com.digital.mecommerces.repository.PermisoRepository;
 import com.digital.mecommerces.repository.RolPermisoRepository;
 import com.digital.mecommerces.repository.RolUsuarioRepository;
-import com.digital.mecommerces.repository.PermisoRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +31,7 @@ public class RolPermisoService {
     }
 
     public List<RolPermiso> obtenerTodosRolPermisos() {
-        log.info("Obteniendo todos los rol-permisos");
+        log.info("Obteniendo todos los roles-permisos");
         return rolPermisoRepository.findAll();
     }
 
@@ -42,14 +42,15 @@ public class RolPermisoService {
 
     public List<Permiso> obtenerPermisosDeRol(Long rolId) {
         log.info("Obteniendo lista de permisos para rol ID: {}", rolId);
-        return rolPermisoRepository.findByRolId(rolId).stream()
+        return rolPermisoRepository.findByRolId(rolId)
+                .stream()
                 .map(RolPermiso::getPermiso)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public RolPermiso asignarPermisoARol(Long rolId, Long permisoId) {
-        log.info("Asignando permiso ID: {} a rol ID: {}", permisoId, rolId);
+        log.info("Asignando permiso ID {} a rol ID {}", permisoId, rolId);
 
         // Verificar que el rol existe
         RolUsuario rol = rolUsuarioRepository.findById(rolId)
@@ -66,16 +67,18 @@ public class RolPermisoService {
         }
 
         // Crear nueva relación
-        RolPermiso rolPermiso = new RolPermiso(rol, permiso);
-        RolPermiso saved = rolPermisoRepository.save(rolPermiso);
+        RolPermiso rolPermiso = new RolPermiso(rolId, permisoId);
+        rolPermiso.setRol(rol);
+        rolPermiso.setPermiso(permiso);
 
+        RolPermiso saved = rolPermisoRepository.save(rolPermiso);
         log.info("Permiso asignado exitosamente: rolId={}, permisoId={}", rolId, permisoId);
         return saved;
     }
 
     @Transactional
     public void eliminarPermisoDeRol(Long rolId, Long permisoId) {
-        log.info("Eliminando permiso ID: {} del rol ID: {}", permisoId, rolId);
+        log.info("Eliminando permiso ID {} del rol ID {}", permisoId, rolId);
 
         // Verificar que el rol existe
         if (!rolUsuarioRepository.existsById(rolId)) {
@@ -111,24 +114,22 @@ public class RolPermisoService {
 
         // Eliminar todos los permisos del rol
         rolPermisoRepository.deleteByRolId(rolId);
-
         log.info("Eliminados {} permisos del rol ID: {}", cantidadPermisos, rolId);
     }
 
     public boolean tienePermiso(Long rolId, String codigoPermiso) {
-        log.debug("Verificando si rol ID: {} tiene permiso: {}", rolId, codigoPermiso);
+        log.debug("Verificando si rol ID {} tiene permiso: {}", rolId, codigoPermiso);
 
         List<RolPermiso> permisos = rolPermisoRepository.findByRolId(rolId);
         boolean tienePermiso = permisos.stream()
                 .anyMatch(rp -> rp.getPermiso().getCodigo().equals(codigoPermiso));
 
-        log.debug("Rol ID: {} {} permiso {}", rolId, tienePermiso ? "tiene" : "no tiene", codigoPermiso);
+        log.debug("Rol ID {}: {} permiso {}", rolId, tienePermiso ? "tiene" : "no tiene", codigoPermiso);
         return tienePermiso;
     }
 
     public List<String> obtenerCodigosPermisosDeRol(Long rolId) {
         log.info("Obteniendo códigos de permisos para rol ID: {}", rolId);
-
         return rolPermisoRepository.findByRolId(rolId).stream()
                 .map(rp -> rp.getPermiso().getCodigo())
                 .collect(Collectors.toList());
@@ -149,12 +150,14 @@ public class RolPermisoService {
                     Permiso permiso = permisoRepository.findById(permisoId)
                             .orElseThrow(() -> new ResourceNotFoundException("Permiso no encontrado con id: " + permisoId));
 
-                    RolPermiso rolPermiso = new RolPermiso(rol, permiso);
+                    RolPermiso rolPermiso = new RolPermiso(rolId, permisoId);
+                    rolPermiso.setRol(rol);
+                    rolPermiso.setPermiso(permiso);
                     rolPermisoRepository.save(rolPermiso);
                     asignados++;
                 }
             } catch (Exception e) {
-                log.warn("Error asignando permiso ID: {} al rol ID: {} - {}", permisoId, rolId, e.getMessage());
+                log.warn("Error asignando permiso ID {} al rol ID {}: {}", permisoId, rolId, e.getMessage());
             }
         }
 

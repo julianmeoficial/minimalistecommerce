@@ -8,12 +8,13 @@ import java.util.List;
 @Entity
 @Table(name = "producto")
 public class Producto {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "producto_id", nullable = false)
+    @Column(name = "productoid", nullable = false)
     private Long productoId;
 
-    @Column(name = "producto_nombre", nullable = false, length = 100)
+    @Column(name = "productonombre", nullable = false, length = 100)
     private String productoNombre;
 
     @Column(name = "descripcion", length = 255)
@@ -23,14 +24,20 @@ public class Producto {
     private Double precio;
 
     @Column(name = "stock", nullable = false)
-    private Integer stock;
+    private Integer stock = 0;
+
+    @Column(name = "categoriaid", nullable = false)
+    private Long categoriaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "categoria_id", nullable = false)
+    @JoinColumn(name = "categoriaid", insertable = false, updatable = false)
     private CategoriaProducto categoria;
 
+    @Column(name = "vendedorid", nullable = false)
+    private Long vendedorId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vendedor_id", nullable = false)
+    @JoinColumn(name = "vendedorid", insertable = false, updatable = false)
     private Usuario vendedor;
 
     @Column(name = "slug", length = 150, unique = true)
@@ -57,18 +64,41 @@ public class Producto {
         this.updatedat = LocalDateTime.now();
         this.activo = true;
         this.destacado = false;
+        this.stock = 0;
     }
 
-    // Constructor con parámetros
+    // Constructor con parámetros (incluyendo stock)
     public Producto(String productoNombre, String descripcion, Double precio, Integer stock,
                     CategoriaProducto categoria, Usuario vendedor) {
-        this();
         this.productoNombre = productoNombre;
         this.descripcion = descripcion;
         this.precio = precio;
         this.stock = stock;
         this.categoria = categoria;
+        this.categoriaId = categoria.getCategoriaId();
         this.vendedor = vendedor;
+        this.vendedorId = vendedor.getUsuarioId();
+        this.createdat = LocalDateTime.now();
+        this.updatedat = LocalDateTime.now();
+        this.activo = true;
+        this.destacado = false;
+    }
+
+    // Constructor alternativo sin stock (para compatibilidad)
+    public Producto(String productoNombre, String descripcion, Double precio,
+                    CategoriaProducto categoria, Usuario vendedor) {
+        this.productoNombre = productoNombre;
+        this.descripcion = descripcion;
+        this.precio = precio;
+        this.stock = 0;
+        this.categoria = categoria;
+        this.categoriaId = categoria.getCategoriaId();
+        this.vendedor = vendedor;
+        this.vendedorId = vendedor.getUsuarioId();
+        this.createdat = LocalDateTime.now();
+        this.updatedat = LocalDateTime.now();
+        this.activo = true;
+        this.destacado = false;
     }
 
     @PreUpdate
@@ -76,7 +106,7 @@ public class Producto {
         this.updatedat = LocalDateTime.now();
     }
 
-    // Getters y Setters (todos los métodos que te proporcioné anteriormente)
+    // Getters y Setters
     public Long getProductoId() {
         return productoId;
     }
@@ -117,12 +147,31 @@ public class Producto {
         this.stock = stock;
     }
 
+    public Long getCategoriaId() {
+        return categoriaId;
+    }
+
+    public void setCategoriaId(Long categoriaId) {
+        this.categoriaId = categoriaId;
+    }
+
     public CategoriaProducto getCategoria() {
         return categoria;
     }
 
     public void setCategoria(CategoriaProducto categoria) {
         this.categoria = categoria;
+        if (categoria != null) {
+            this.categoriaId = categoria.getCategoriaId();
+        }
+    }
+
+    public Long getVendedorId() {
+        return vendedorId;
+    }
+
+    public void setVendedorId(Long vendedorId) {
+        this.vendedorId = vendedorId;
     }
 
     public Usuario getVendedor() {
@@ -131,6 +180,9 @@ public class Producto {
 
     public void setVendedor(Usuario vendedor) {
         this.vendedor = vendedor;
+        if (vendedor != null) {
+            this.vendedorId = vendedor.getUsuarioId();
+        }
     }
 
     public String getSlug() {

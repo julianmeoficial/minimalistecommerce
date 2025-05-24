@@ -6,25 +6,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "carrito_compra")
+@Table(name = "carritocompra")
 public class CarritoCompra {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "carrito_id", nullable = false)
+    @Column(name = "carritoid", nullable = false)
     private Long carritoId;
 
     @ManyToOne
-    @JoinColumn(name = "usuario_id", nullable = false)
+    @JoinColumn(name = "usuarioid", nullable = false)
     private Usuario usuario;
 
-    @Column(name = "fecha_creacion", nullable = false)
+    @Column(name = "fechacreacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
     @Column(name = "activo", nullable = false)
     private Boolean activo;
 
-    @OneToMany(mappedBy = "carritoCompra", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "carritoCompra", cascade = CascadeType.ALL)
     private List<CarritoItem> items = new ArrayList<>();
 
     // Constructor vacío

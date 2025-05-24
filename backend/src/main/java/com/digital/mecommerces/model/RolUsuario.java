@@ -1,24 +1,14 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "rolusuario")
-@Data
-@NoArgsConstructor
-@EqualsAndHashCode(exclude = {"usuarios", "rolPermisos"})
-@ToString(exclude = {"usuarios", "rolPermisos"})
 public class RolUsuario {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "rol_id", nullable = false)
+    @Column(name = "rolid", nullable = false)
     private Long rolId;
 
     @Column(name = "nombre", nullable = false, unique = true, length = 50)
@@ -27,14 +17,46 @@ public class RolUsuario {
     @Column(name = "descripcion", length = 255)
     private String descripcion;
 
-    @OneToMany(mappedBy = "rol", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Usuario> usuarios = new ArrayList<>();
+    // Constructor vacío requerido para JPA
+    public RolUsuario() {}
 
-    @OneToMany(mappedBy = "rol", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<RolPermiso> rolPermisos = new ArrayList<>();
-
+    // Constructor con parámetros
     public RolUsuario(String nombre, String descripcion) {
         this.nombre = nombre;
         this.descripcion = descripcion;
+    }
+
+    // Getters y Setters
+    public Long getRolId() {
+        return rolId;
+    }
+
+    public void setRolId(Long rolId) {
+        this.rolId = rolId;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    @Override
+    public String toString() {
+        return "RolUsuario{" +
+                "rolId=" + rolId +
+                ", nombre='" + nombre + '\'' +
+                ", descripcion='" + descripcion + '\'' +
+                '}';
     }
 }

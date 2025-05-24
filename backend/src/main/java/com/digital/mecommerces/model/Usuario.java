@@ -8,12 +8,13 @@ import java.time.LocalDateTime;
 @Table(name = "usuario")
 @Slf4j
 public class Usuario {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "usuario_id", nullable = false, columnDefinition = "BIGINT")
+    @Column(name = "usuarioid", nullable = false)
     private Long usuarioId;
 
-    @Column(name = "usuario_nombre", nullable = false, length = 50)
+    @Column(name = "usuarionombre", nullable = false, length = 50)
     private String usuarioNombre;
 
     @Column(name = "email", nullable = false, unique = true)
@@ -23,7 +24,7 @@ public class Usuario {
     private String password;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "rol_id", nullable = false, referencedColumnName = "rol_id")
+    @JoinColumn(name = "rolid", nullable = false, referencedColumnName = "rolid")
     private RolUsuario rol;
 
     @Column(name = "createdat")
@@ -35,7 +36,7 @@ public class Usuario {
     @Column(name = "activo")
     private Boolean activo = true;
 
-    @Column(name = "ultimo_login")
+    @Column(name = "ultimologin")
     private LocalDateTime ultimoLogin;
 
     // Constructor vacío requerido para JPA
@@ -59,7 +60,7 @@ public class Usuario {
         this.updatedat = LocalDateTime.now();
     }
 
-    // Getters y Setters
+    // Getters y Setters completos
     public Long getUsuarioId() {
         return usuarioId;
     }
@@ -139,7 +140,7 @@ public class Usuario {
                 ", usuarioNombre='" + usuarioNombre + '\'' +
                 ", email='" + email + '\'' +
                 ", activo=" + activo +
-                ", rol=" + (rol != null ? rol.getNombre() : null) +
+                ", rol=" + (rol != null ? rol.getNombre() : "null") +
                 '}';
     }
 }

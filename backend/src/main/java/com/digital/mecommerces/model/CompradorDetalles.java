@@ -5,46 +5,46 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "comprador_detalles")
+@Table(name = "compradordetalles")
 public class CompradorDetalles {
 
     @Id
-    @Column(name = "usuario_id")
+    @Column(name = "usuarioid")
     private Long usuarioId;
 
     @OneToOne
     @MapsId
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuarioid")
     private Usuario usuario;
 
-    @Column(name = "fecha_nacimiento")
+    @Column(name = "fechanacimiento")
     private LocalDate fechaNacimiento;
 
     @Column(name = "preferencias", columnDefinition = "TEXT")
     private String preferencias;
 
-    @Column(name = "direccion_envio", length = 255)
+    @Column(name = "direccionenvio", length = 255)
     private String direccionEnvio;
 
     @Column(name = "telefono", length = 255)
     private String telefono;
 
-    @Column(name = "direccion_alternativa", length = 255)
+    @Column(name = "direccionalternativa", length = 255)
     private String direccionAlternativa;
 
-    @Column(name = "telefono_alternativo", length = 50)
+    @Column(name = "telefonoalternativo", length = 50)
     private String telefonoAlternativo;
 
-    @Column(name = "notificacion_email")
+    @Column(name = "notificacionemail")
     private Boolean notificacionEmail = true;
 
-    @Column(name = "notificacion_sms")
+    @Column(name = "notificacionsms")
     private Boolean notificacionSms = false;
 
     @Column(name = "calificacion", precision = 3, scale = 2)
     private BigDecimal calificacion = new BigDecimal("5.00");
 
-    @Column(name = "total_compras")
+    @Column(name = "totalcompras")
     private Integer totalCompras = 0;
 
     // Constructor vacío
@@ -53,11 +53,20 @@ public class CompradorDetalles {
     // Constructor con usuario
     public CompradorDetalles(Usuario usuario) {
         this.usuario = usuario;
-        this.usuarioId = usuario.getUsuarioId();
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
         this.notificacionEmail = true;
         this.notificacionSms = false;
         this.calificacion = new BigDecimal("5.00");
         this.totalCompras = 0;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (usuario != null && usuario.getUsuarioId() != null) {
+            this.usuarioId = usuario.getUsuarioId();
+        }
     }
 
     // Getters y Setters
