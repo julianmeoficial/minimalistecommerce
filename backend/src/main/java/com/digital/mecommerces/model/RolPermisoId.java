@@ -8,10 +8,10 @@ public class RolPermisoId implements Serializable {
     private Long rolId;
     private Long permisoId;
 
-    // Constructor vacío
+    // Constructor vacío requerido por JPA
     public RolPermisoId() {}
 
-    // Constructor con parámetros
+    // Constructor completo optimizado
     public RolPermisoId(Long rolId, Long permisoId) {
         this.rolId = rolId;
         this.permisoId = permisoId;
@@ -34,6 +34,7 @@ public class RolPermisoId implements Serializable {
         this.permisoId = permisoId;
     }
 
+    // Métodos de comparación optimizados (REQUERIDOS para claves compuestas)
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

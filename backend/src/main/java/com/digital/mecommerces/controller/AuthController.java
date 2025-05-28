@@ -4,13 +4,13 @@ import com.digital.mecommerces.dto.AuthResponseDTO;
 import com.digital.mecommerces.dto.LoginDTO;
 import com.digital.mecommerces.dto.RegistroDTO;
 import com.digital.mecommerces.exception.BusinessException;
-import com.digital.mecommerces.exception.ResourceNotFoundException;
 import com.digital.mecommerces.model.RolUsuario;
 import com.digital.mecommerces.model.Usuario;
-import com.digital.mecommerces.repository.RolUsuarioRepository;
-import com.digital.mecommerces.repository.UsuarioRepository;
 import com.digital.mecommerces.security.JwtTokenProvider;
+import com.digital.mecommerces.service.RolUsuarioService;
 import com.digital.mecommerces.service.UsuarioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -20,182 +20,331 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Controlador para autenticación y registro de usuarios
+ * Optimizado para el sistema medbcommerce 3.0
+ */
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Autenticación", description = "APIs para autenticación y registro de usuarios")
 @Slf4j
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final UsuarioService usuarioService;
+    private final RolUsuarioService rolUsuarioService;
     private final JwtTokenProvider tokenProvider;
-    private final UsuarioRepository usuarioRepository;
-    private final RolUsuarioRepository rolUsuarioRepository;
 
     public AuthController(AuthenticationManager authenticationManager,
                           UsuarioService usuarioService,
-                          JwtTokenProvider tokenProvider,
-                          UsuarioRepository usuarioRepository,
-                          RolUsuarioRepository rolUsuarioRepository) {
+                          RolUsuarioService rolUsuarioService,
+                          JwtTokenProvider tokenProvider) {
         this.authenticationManager = authenticationManager;
         this.usuarioService = usuarioService;
+        this.rolUsuarioService = rolUsuarioService;
         this.tokenProvider = tokenProvider;
-        this.usuarioRepository = usuarioRepository;
-        this.rolUsuarioRepository = rolUsuarioRepository;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> autenticarUsuario(@Valid @RequestBody LoginDTO loginDTO) {
+    @Operation(summary = "Autenticar usuario", description = "Autentica usuario y devuelve token JWT")
+    public ResponseEntity<AuthResponseDTO> autenticarUsuario(@Valid @RequestBody LoginDTO loginDTO) {
         try {
-            log.info("Intento de login para email: {}", loginDTO.getEmail());
+            log.info("🔐 Intento de login para: {}", loginDTO.getEmail());
 
-            // Verificar que el usuario existe antes de la autenticación
-            Usuario usuario = usuarioRepository.findByEmail(loginDTO.getEmail())
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-            // Verificar que el usuario esté activo
-            if (!usuario.getActivo()) {
-                log.warn("Intento de login con usuario inactivo: {}", loginDTO.getEmail());
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(new AuthResponseDTO("Usuario inactivo", false));
-            }
-
+            // Autenticar usuario
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassword())
+                    new UsernamePasswordAuthenticationToken(
+                            loginDTO.getEmail(),
+                            loginDTO.getPassword()
+                    )
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            String token = tokenProvider.generateToken(authentication.getName());
+            // Generar tokens
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String token = tokenProvider.generateToken(userDetails.getUsername());
+            String refreshToken = tokenProvider.generateRefreshToken(userDetails.getUsername());
 
-            // Actualizar último login
-            usuario.setUltimoLogin(LocalDateTime.now());
-            usuarioRepository.save(usuario);
+            // Obtener información del usuario
+            Usuario usuario = usuarioService.obtenerUsuarioPorEmail(loginDTO.getEmail());
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("mensaje", "Usuario autenticado exitosamente");
-            response.put("success", true);
-            response.put("token", token);
-            response.put("usuario", Map.of(
-                    "id", usuario.getUsuarioId(),
-                    "nombre", usuario.getUsuarioNombre(),
-                    "email", usuario.getEmail(),
-                    "rol", usuario.getRol().getNombre()
-            ));
+            // Registrar login exitoso
+            usuarioService.registrarLogin(loginDTO.getEmail());
 
-            log.info("Login exitoso para usuario: {}", loginDTO.getEmail());
+            // Obtener autoridades
+            List<String> authorities = userDetails.getAuthorities().stream()
+                    .map(auth -> auth.getAuthority())
+                    .collect(Collectors.toList());
+
+            // Crear respuesta
+            AuthResponseDTO.UsuarioSimpleDTO usuarioDTO = new AuthResponseDTO.UsuarioSimpleDTO(
+                    usuario.getUsuarioId(),
+                    usuario.getUsuarioNombre(),
+                    usuario.getEmail(),
+                    usuario.getRol().getNombre(),
+                    usuario.getActivo(),
+                    usuario.getUltimoLogin()
+            );
+
+            AuthResponseDTO response = AuthResponseDTO.loginSuccess(
+                    token,
+                    refreshToken,
+                    usuarioDTO,
+                    authorities,
+                    tokenProvider.getJwtExpirationInMs() / 1000 // Convertir a segundos
+            );
+
+            log.info("✅ Login exitoso para: {}", loginDTO.getEmail());
             return ResponseEntity.ok(response);
 
         } catch (BadCredentialsException e) {
-            log.warn("Credenciales inválidas para email: {}", loginDTO.getEmail());
+            log.warn("❌ Credenciales inválidas para: {}", loginDTO.getEmail());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new AuthResponseDTO("Credenciales inválidas", false));
+                    .body(AuthResponseDTO.error("Credenciales inválidas"));
+
         } catch (Exception e) {
-            log.error("Error durante el login: {}", e.getMessage(), e);
+            log.error("❌ Error durante login para {}: {}", loginDTO.getEmail(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new AuthResponseDTO("Error interno del servidor", false));
+                    .body(AuthResponseDTO.error("Error interno del servidor"));
         }
     }
 
     @PostMapping("/registro")
-    public ResponseEntity<?> registrarUsuario(@Valid @RequestBody RegistroDTO registroDTO) {
+    @Operation(summary = "Registrar nuevo usuario", description = "Registra un nuevo usuario en el sistema")
+    public ResponseEntity<AuthResponseDTO> registrarUsuario(@Valid @RequestBody RegistroDTO registroDTO) {
         try {
-            log.info("Intento de registro para email: {}", registroDTO.getEmail());
+            log.info("📝 Intento de registro para: {}", registroDTO.getEmail());
 
             // Verificar que el email no esté registrado
-            if (usuarioRepository.existsByEmail(registroDTO.getEmail())) {
-                log.warn("Intento de registro con email ya existente: {}", registroDTO.getEmail());
+            if (usuarioService.existeEmail(registroDTO.getEmail())) {
+                log.warn("❌ Email ya registrado: {}", registroDTO.getEmail());
                 return ResponseEntity.badRequest()
-                        .body(new AuthResponseDTO("Este email ya está registrado", false));
+                        .body(AuthResponseDTO.error("Este email ya está registrado"));
             }
 
-            // Verificar que el rol existe - CORRIGIENDO EL ERROR
-            RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con ID: " + registroDTO.getRolId()));
+            // Verificar que el rol existe
+            RolUsuario rol = rolUsuarioService.obtenerRolPorId(registroDTO.getRolId());
 
-            // Validar que el rolId sea válido (1=ADMIN, 2=COMPRADOR, 3=VENDEDOR)
-            if (registroDTO.getRolId() == null || registroDTO.getRolId() < 1 || registroDTO.getRolId() > 3) {
-                log.warn("Intento de registro con rol inválido: {}", registroDTO.getRolId());
-                return ResponseEntity.badRequest()
-                        .body(new AuthResponseDTO("Rol inválido. Debe ser 1, 2 o 3", false));
-            }
-
-            // Registrar el usuario
+            // Registrar usuario
             Usuario usuario = usuarioService.registrarUsuario(registroDTO);
 
-            log.info("Usuario registrado exitosamente: {}", usuario.getEmail());
+            // Crear respuesta
+            AuthResponseDTO.UsuarioSimpleDTO usuarioDTO = new AuthResponseDTO.UsuarioSimpleDTO(
+                    usuario.getUsuarioId(),
+                    usuario.getUsuarioNombre(),
+                    usuario.getEmail(),
+                    usuario.getRol().getNombre()
+            );
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("mensaje", "Usuario registrado exitosamente");
-            response.put("success", true);
-            response.put("usuario", Map.of(
-                    "id", usuario.getUsuarioId(),
-                    "nombre", usuario.getUsuarioNombre(),
-                    "email", usuario.getEmail(),
-                    "rol", usuario.getRol().getNombre()
-            ));
+            AuthResponseDTO response = AuthResponseDTO.registrationSuccess(usuarioDTO);
 
+            log.info("✅ Usuario registrado exitosamente: {}", usuario.getEmail());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
-        } catch (ResourceNotFoundException e) {
-            log.error("Rol no encontrado durante el registro: {}", e.getMessage());
+        } catch (BusinessException e) {
+            log.error("❌ Error de negocio en registro: {}", e.getMessage());
             return ResponseEntity.badRequest()
-                    .body(new AuthResponseDTO("Rol no válido: " + e.getMessage(), false));
-        } catch (IllegalArgumentException e) {
-            log.error("Argumento inválido durante el registro: {}", e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponseDTO("Error en los datos: " + e.getMessage(), false));
+                    .body(AuthResponseDTO.error("Error en el registro: " + e.getMessage()));
+
         } catch (Exception e) {
-            log.error("Error durante el registro: {}", e.getMessage(), e);
+            log.error("❌ Error durante registro para {}: {}", registroDTO.getEmail(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new AuthResponseDTO("Error interno del servidor", false));
+                    .body(AuthResponseDTO.error("Error interno del servidor"));
         }
     }
 
-    @GetMapping("/validate")
-    public ResponseEntity<?> validateToken(@RequestHeader("Authorization") String token) {
+    @PostMapping("/refresh")
+    @Operation(summary = "Refrescar token", description = "Genera nuevo token usando refresh token")
+    public ResponseEntity<AuthResponseDTO> refreshToken(@RequestHeader("Authorization") String authHeader) {
         try {
-            log.debug("Validando token: {}", token.substring(0, Math.min(token.length(), 20)) + "...");
+            log.info("🔄 Solicitud de refresh token");
 
-            if (token.startsWith("Bearer ")) {
-                token = token.substring(7);
+            // Extraer refresh token
+            String refreshToken = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                refreshToken = authHeader.substring(7);
             }
 
+            if (refreshToken == null || refreshToken.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(AuthResponseDTO.error("Refresh token requerido"));
+            }
+
+            // Generar nuevo token
+            String newToken = tokenProvider.refreshToken(refreshToken);
+            String username = tokenProvider.getUsernameFromToken(refreshToken);
+
+            // Obtener información del usuario
+            Usuario usuario = usuarioService.obtenerUsuarioPorEmail(username);
+
+            AuthResponseDTO.UsuarioSimpleDTO usuarioDTO = new AuthResponseDTO.UsuarioSimpleDTO(
+                    usuario.getUsuarioId(),
+                    usuario.getUsuarioNombre(),
+                    usuario.getEmail(),
+                    usuario.getRol().getNombre(),
+                    usuario.getActivo(),
+                    usuario.getUltimoLogin()
+            );
+
+            AuthResponseDTO response = new AuthResponseDTO();
+            response.setSuccess(true);
+            response.setMessage("Token refrescado exitosamente");
+            response.setToken(newToken);
+            response.setRefreshToken(refreshToken); // Mantener el mismo refresh token
+            response.setUsuario(usuarioDTO);
+            response.setExpiresIn(tokenProvider.getJwtExpirationInMs() / 1000);
+            response.setTimestamp(LocalDateTime.now());
+
+            log.info("✅ Token refrescado exitosamente para: {}", username);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error refrescando token: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponseDTO.error("Token de refresh inválido"));
+        }
+    }
+
+    @PostMapping("/validate")
+    @Operation(summary = "Validar token", description = "Valida si un token JWT es válido")
+    public ResponseEntity<AuthResponseDTO> validateToken(@RequestHeader("Authorization") String authHeader) {
+        try {
+            log.debug("🔍 Validando token");
+
+            // Extraer token
+            String token = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+
+            if (token == null || token.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(AuthResponseDTO.error("Token requerido"));
+            }
+
+            // Validar token
             if (tokenProvider.validateToken(token)) {
-                String email = tokenProvider.getUsernameFromToken(token);
-                Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+                String username = tokenProvider.getUsernameFromToken(token);
+                Usuario usuario = usuarioService.obtenerUsuarioPorEmail(username);
 
                 if (usuario != null && usuario.getActivo()) {
-                    return ResponseEntity.ok(Map.of(
-                            "valid", true,
-                            "usuario", Map.of(
-                                    "id", usuario.getUsuarioId(),
-                                    "nombre", usuario.getUsuarioNombre(),
-                                    "email", usuario.getEmail(),
-                                    "rol", usuario.getRol().getNombre()
-                            )
-                    ));
+                    AuthResponseDTO.UsuarioSimpleDTO usuarioDTO = new AuthResponseDTO.UsuarioSimpleDTO(
+                            usuario.getUsuarioId(),
+                            usuario.getUsuarioNombre(),
+                            usuario.getEmail(),
+                            usuario.getRol().getNombre(),
+                            usuario.getActivo(),
+                            usuario.getUltimoLogin()
+                    );
+
+                    AuthResponseDTO response = new AuthResponseDTO();
+                    response.setSuccess(true);
+                    response.setMessage("Token válido");
+                    response.setUsuario(usuarioDTO);
+                    response.setTimestamp(LocalDateTime.now());
+
+                    return ResponseEntity.ok(response);
                 }
             }
 
-            return ResponseEntity.ok(Map.of("valid", false));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponseDTO.error("Token inválido"));
+
         } catch (Exception e) {
-            log.error("Error validando token: {}", e.getMessage());
-            return ResponseEntity.ok(Map.of("valid", false));
+            log.error("❌ Error validando token: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponseDTO.error("Token inválido"));
         }
     }
 
-    @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> healthCheck() {
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "UP");
-        response.put("service", "Auth Service");
-        response.put("timestamp", LocalDateTime.now().toString());
-        return ResponseEntity.ok(response);
+    @PostMapping("/logout")
+    @Operation(summary = "Cerrar sesión", description = "Invalida la sesión actual del usuario")
+    public ResponseEntity<AuthResponseDTO> logout() {
+        try {
+            log.info("🚪 Usuario cerrando sesión");
+
+            // Limpiar contexto de seguridad
+            SecurityContextHolder.clearContext();
+
+            AuthResponseDTO response = new AuthResponseDTO();
+            response.setSuccess(true);
+            response.setMessage("Sesión cerrada exitosamente");
+            response.setTimestamp(LocalDateTime.now());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error cerrando sesión: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(AuthResponseDTO.error("Error cerrando sesión"));
+        }
+    }
+
+    @GetMapping("/info")
+    @Operation(summary = "Obtener información de registro", description = "Obtiene roles disponibles para registro")
+    public ResponseEntity<AuthResponseDTO> obtenerInfoRegistro() {
+        try {
+            log.debug("ℹ️ Obteniendo información para registro");
+
+            List<RolUsuario> roles = rolUsuarioService.obtenerRoles();
+
+            AuthResponseDTO response = new AuthResponseDTO();
+            response.setSuccess(true);
+            response.setMessage("Información de registro obtenida");
+            response.setTimestamp(LocalDateTime.now());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error obteniendo información de registro: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(AuthResponseDTO.error("Error obteniendo información"));
+        }
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Obtener perfil del usuario autenticado")
+    public ResponseEntity<AuthResponseDTO> obtenerPerfilUsuario() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(AuthResponseDTO.error("Usuario no autenticado"));
+            }
+
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.obtenerUsuarioPorEmail(email);
+
+            AuthResponseDTO.UsuarioSimpleDTO usuarioDTO = new AuthResponseDTO.UsuarioSimpleDTO(
+                    usuario.getUsuarioId(),
+                    usuario.getUsuarioNombre(),
+                    usuario.getEmail(),
+                    usuario.getRol().getNombre(),
+                    usuario.getActivo(),
+                    usuario.getUltimoLogin()
+            );
+
+            AuthResponseDTO response = new AuthResponseDTO();
+            response.setSuccess(true);
+            response.setMessage("Perfil obtenido exitosamente");
+            response.setUsuario(usuarioDTO);
+            response.setTimestamp(LocalDateTime.now());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error obteniendo perfil: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(AuthResponseDTO.error("Error obteniendo perfil"));
+        }
     }
 }

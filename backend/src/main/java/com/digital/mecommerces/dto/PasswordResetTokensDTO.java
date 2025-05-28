@@ -1,164 +1,251 @@
 package com.digital.mecommerces.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * DTO para gestión de tokens de reset de contraseña
+ * Optimizado para el sistema medbcommerce 3.0
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class PasswordResetTokensDTO {
 
-    private Long id;
+    // === REQUEST DTOs ===
 
-    @NotNull(message = "El ID del usuario es obligatorio")
-    private Long usuarioId;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResetPasswordRequestDTO {
+        @NotBlank(message = "El email es obligatorio")
+        @Email(message = "El formato de email es inválido")
+        @JsonProperty("email")
+        private String email;
 
-    private String token;
+        @JsonProperty("ipSolicitante")
+        private String ipSolicitante;
 
-    private LocalDateTime fechaExpiracion;
-
-    private Boolean usado = false;
-
-    private LocalDateTime createdat;
-
-    // Para solicitud de reset
-    @Email(message = "Email debe ser válido")
-    @NotBlank(message = "El email es obligatorio")
-    private String email;
-
-    // Para confirmación de reset
-    @NotBlank(message = "El token es obligatorio")
-    private String resetToken;
-
-    @NotBlank(message = "La nueva contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-    private String nuevaPassword;
-
-    // Información del usuario para mostrar
-    private String usuarioNombre;
-    private String usuarioEmail;
-
-    // Constructor vacío
-    public PasswordResetTokensDTO() {}
-
-    // Constructor para solicitud
-    public PasswordResetTokensDTO(String email) {
-        this.email = email;
+        @JsonProperty("userAgent")
+        private String userAgent;
     }
 
-    // Constructor para reset
-    public PasswordResetTokensDTO(String resetToken, String nuevaPassword) {
-        this.resetToken = resetToken;
-        this.nuevaPassword = nuevaPassword;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResetPasswordConfirmDTO {
+        @NotBlank(message = "El token es obligatorio")
+        @JsonProperty("token")
+        private String token;
+
+        @NotBlank(message = "La nueva contraseña es obligatoria")
+        @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
+        @JsonProperty("nuevaPassword")
+        private String nuevaPassword;
+
+        @NotBlank(message = "La confirmación de contraseña es obligatoria")
+        @JsonProperty("confirmarPassword")
+        private String confirmarPassword;
+
+        // Validación de que las contraseñas coincidan
+        public boolean passwordsMatch() {
+            return nuevaPassword != null && nuevaPassword.equals(confirmarPassword);
+        }
     }
 
-    // Constructor completo
-    public PasswordResetTokensDTO(Long id, Long usuarioId, String token,
-                                  LocalDateTime fechaExpiracion, Boolean usado, LocalDateTime createdat) {
-        this.id = id;
-        this.usuarioId = usuarioId;
-        this.token = token;
-        this.fechaExpiracion = fechaExpiracion;
-        this.usado = usado;
-        this.createdat = createdat;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ValidateTokenRequestDTO {
+        @NotBlank(message = "El token es obligatorio")
+        @JsonProperty("token")
+        private String token;
     }
 
-    // Getters y Setters
-    public Long getId() {
-        return id;
+    // === RESPONSE DTOs ===
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResetPasswordResponseDTO {
+        @JsonProperty("success")
+        private Boolean success;
+
+        @JsonProperty("message")
+        private String message;
+
+        @JsonProperty("timestamp")
+        private LocalDateTime timestamp;
+
+        @JsonProperty("expirationTime")
+        private LocalDateTime expirationTime;
+
+        // Constructor para respuestas exitosas
+        public ResetPasswordResponseDTO(Boolean success, String message) {
+            this.success = success;
+            this.message = message;
+            this.timestamp = LocalDateTime.now();
+        }
+
+        // Métodos de utilidad
+        public static ResetPasswordResponseDTO success(String message) {
+            return new ResetPasswordResponseDTO(true, message);
+        }
+
+        public static ResetPasswordResponseDTO success(String message, LocalDateTime expirationTime) {
+            ResetPasswordResponseDTO response = new ResetPasswordResponseDTO(true, message);
+            response.setExpirationTime(expirationTime);
+            return response;
+        }
+
+        public static ResetPasswordResponseDTO error(String message) {
+            return new ResetPasswordResponseDTO(false, message);
+        }
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TokenValidationResponseDTO {
+        @JsonProperty("valid")
+        private Boolean valid;
+
+        @JsonProperty("message")
+        private String message;
+
+        @JsonProperty("timeRemaining")
+        private Long timeRemaining; // Segundos hasta expiración
+
+        @JsonProperty("userEmail")
+        private String userEmail;
+
+        @JsonProperty("tokenType")
+        private String tokenType;
+
+        @JsonProperty("attempts")
+        private Integer attempts;
+
+        @JsonProperty("maxAttempts")
+        private Integer maxAttempts;
+
+        // Constructor para token válido
+        public static TokenValidationResponseDTO valid(String userEmail, Long timeRemaining) {
+            TokenValidationResponseDTO response = new TokenValidationResponseDTO();
+            response.setValid(true);
+            response.setMessage("Token válido");
+            response.setUserEmail(userEmail);
+            response.setTimeRemaining(timeRemaining);
+            response.setTokenType("password_reset");
+            return response;
+        }
+
+        // Constructor para token inválido
+        public static TokenValidationResponseDTO invalid(String message) {
+            TokenValidationResponseDTO response = new TokenValidationResponseDTO();
+            response.setValid(false);
+            response.setMessage(message);
+            response.setTokenType("password_reset");
+            return response;
+        }
+
+        // Constructor para token con intentos
+        public static TokenValidationResponseDTO withAttempts(Boolean valid, String message,
+                                                              Integer attempts, Integer maxAttempts) {
+            TokenValidationResponseDTO response = new TokenValidationResponseDTO();
+            response.setValid(valid);
+            response.setMessage(message);
+            response.setAttempts(attempts);
+            response.setMaxAttempts(maxAttempts);
+            response.setTokenType("password_reset");
+            return response;
+        }
     }
 
-    public Long getUsuarioId() {
-        return usuarioId;
-    }
+    // === INFO DTO para administración ===
 
-    public void setUsuarioId(Long usuarioId) {
-        this.usuarioId = usuarioId;
-    }
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TokenInfoDTO {
+        @JsonProperty("id")
+        private Long id;
 
-    public String getToken() {
-        return token;
-    }
+        @JsonProperty("userEmail")
+        private String userEmail;
 
-    public void setToken(String token) {
-        this.token = token;
-    }
+        @JsonProperty("createdAt")
+        private LocalDateTime createdAt;
 
-    public LocalDateTime getFechaExpiracion() {
-        return fechaExpiracion;
-    }
+        @JsonProperty("expirationDate")
+        private LocalDateTime expirationDate;
 
-    public void setFechaExpiracion(LocalDateTime fechaExpiracion) {
-        this.fechaExpiracion = fechaExpiracion;
-    }
+        @JsonProperty("used")
+        private Boolean used;
 
-    public Boolean getUsado() {
-        return usado;
-    }
+        @JsonProperty("active")
+        private Boolean active;
 
-    public void setUsado(Boolean usado) {
-        this.usado = usado;
-    }
+        @JsonProperty("attempts")
+        private Integer attempts;
 
-    public LocalDateTime getCreatedat() {
-        return createdat;
-    }
+        @JsonProperty("ipSolicitante")
+        private String ipSolicitante;
 
-    public void setCreatedat(LocalDateTime createdat) {
-        this.createdat = createdat;
-    }
+        @JsonProperty("userAgent")
+        private String userAgent;
 
-    public String getEmail() {
-        return email;
-    }
+        @JsonProperty("status")
+        private String status; // VALID, EXPIRED, USED, BLOCKED
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+        @JsonProperty("timeUntilExpiration")
+        private Long timeUntilExpiration;
 
-    public String getResetToken() {
-        return resetToken;
-    }
+        // Método para determinar el estado del token
+        public void calculateStatus() {
+            if (Boolean.TRUE.equals(used)) {
+                this.status = "USED";
+            } else if (Boolean.FALSE.equals(active)) {
+                this.status = "BLOCKED";
+            } else if (expirationDate != null && expirationDate.isBefore(LocalDateTime.now())) {
+                this.status = "EXPIRED";
+            } else {
+                this.status = "VALID";
+            }
 
-    public void setResetToken(String resetToken) {
-        this.resetToken = resetToken;
-    }
+            // Calcular tiempo restante
+            if (expirationDate != null) {
+                long seconds = java.time.Duration.between(LocalDateTime.now(), expirationDate).getSeconds();
+                this.timeUntilExpiration = Math.max(0, seconds);
+            }
+        }
 
-    public String getNuevaPassword() {
-        return nuevaPassword;
-    }
+        // Método para crear desde entidad
+        public static TokenInfoDTO fromEntity(com.digital.mecommerces.model.PasswordResetTokens token) {
+            if (token == null) return null;
 
-    public void setNuevaPassword(String nuevaPassword) {
-        this.nuevaPassword = nuevaPassword;
-    }
+            TokenInfoDTO dto = new TokenInfoDTO();
+            dto.setId(token.getId());
+            dto.setCreatedAt(token.getCreatedAt());
+            dto.setExpirationDate(token.getFechaExpiracion());
+            dto.setUsed(token.getUsado());
+            dto.setActive(token.getActivo());
+            dto.setAttempts(token.getIntentos());
+            dto.setIpSolicitante(token.getIpSolicitante());
+            dto.setUserAgent(token.getUserAgent());
 
-    public String getUsuarioNombre() {
-        return usuarioNombre;
-    }
+            if (token.getUsuario() != null) {
+                dto.setUserEmail(token.getUsuario().getEmail());
+            }
 
-    public void setUsuarioNombre(String usuarioNombre) {
-        this.usuarioNombre = usuarioNombre;
-    }
-
-    public String getUsuarioEmail() {
-        return usuarioEmail;
-    }
-
-    public void setUsuarioEmail(String usuarioEmail) {
-        this.usuarioEmail = usuarioEmail;
-    }
-
-    // Métodos de utilidad
-    public boolean isExpired() {
-        return fechaExpiracion != null && LocalDateTime.now().isAfter(fechaExpiracion);
-    }
-
-    public boolean isValid() {
-        return !usado && !isExpired();
+            dto.calculateStatus();
+            return dto;
+        }
     }
 }

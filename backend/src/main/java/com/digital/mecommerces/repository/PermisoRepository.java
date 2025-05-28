@@ -12,74 +12,167 @@ import java.util.Optional;
 @Repository
 public interface PermisoRepository extends JpaRepository<Permiso, Long> {
 
-    // Buscar por código
+    // Búsqueda básica por código (la más importante)
     Optional<Permiso> findByCodigo(String codigo);
 
-    // Verificar si existe por código
+    Optional<Permiso> findByCodigoIgnoreCase(String codigo);
+
+    // Verificar existencia por código
     boolean existsByCodigo(String codigo);
 
-    // Buscar por nivel
-    List<Permiso> findByNivel(Integer nivel);
+    boolean existsByCodigoIgnoreCase(String codigo);
 
-    // Buscar permisos padre (sin padre)
-    List<Permiso> findByPermisoPadreIsNull();
-
-    // Buscar permisos hijos de un padre específico
-    List<Permiso> findByPermisoPadre(Permiso permisoPadre);
-
-    // Buscar permisos hijos por ID del padre
-    List<Permiso> findByPermisopadreId(Long permisopadreId);
-
-    // Buscar permisos por código que contenga cierto texto
-    List<Permiso> findByCodigoContainingIgnoreCase(String codigo);
-
-    // Buscar permisos por descripción que contenga cierto texto
+    // Búsqueda por descripción
     List<Permiso> findByDescripcionContainingIgnoreCase(String descripcion);
 
-    // Buscar permisos por nivel mayor o igual
-    List<Permiso> findByNivelGreaterThanEqual(Integer nivel);
+    // Permisos por nivel
+    List<Permiso> findByNivel(Integer nivel);
 
-    // Buscar permisos por nivel menor o igual
-    List<Permiso> findByNivelLessThanEqual(Integer nivel);
+    List<Permiso> findByNivelBetween(Integer nivelMin, Integer nivelMax);
 
-    // Contar permisos por nivel
-    long countByNivel(Integer nivel);
+    @Query("SELECT p FROM Permiso p WHERE p.nivel <= :maxNivel ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosPorNivelMaximo(@Param("maxNivel") Integer maxNivel);
 
-    // Contar permisos hijos de un padre
-    long countByPermisoPadre(Permiso permisoPadre);
+    // Permisos de alto nivel (administrativos)
+    @Query("SELECT p FROM Permiso p WHERE p.nivel <= 2 AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosAdministrativos();
 
-    // Buscar permisos ordenados por nivel
-    List<Permiso> findAllByOrderByNivelAsc();
+    // Permisos básicos (nivel alto)
+    @Query("SELECT p FROM Permiso p WHERE p.nivel >= 3 AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosBasicos();
 
-    // Buscar permisos ordenados por código
-    List<Permiso> findAllByOrderByCodigoAsc();
+    // Permisos activos
+    List<Permiso> findByActivoTrue();
 
-    // Consulta personalizada para obtener jerarquía completa
-    @Query("SELECT p FROM Permiso p LEFT JOIN FETCH p.permisosHijos ORDER BY p.nivel, p.codigo")
-    List<Permiso> findAllWithHijos();
+    List<Permiso> findByActivoFalse();
 
-    // Consulta para obtener permisos de un nivel específico con sus hijos
-    @Query("SELECT p FROM Permiso p LEFT JOIN FETCH p.permisosHijos WHERE p.nivel = :nivel ORDER BY p.codigo")
-    List<Permiso> findByNivelWithHijos(@Param("nivel") Integer nivel);
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true ORDER BY p.nivel ASC, p.codigo ASC")
+    List<Permiso> findPermisosActivosOrdenados();
 
-    // ELIMINADA: La consulta problemática WITH RECURSIVE
-    // Reemplazada por método en el servicio
+    // Búsquedas por categoría
+    List<Permiso> findByCategoria(String categoria);
 
-    // Buscar permisos que no tienen hijos (permisos hoja)
-    @Query("SELECT p FROM Permiso p WHERE p.permisoId NOT IN (SELECT DISTINCT pp.permisopadreId FROM Permiso pp WHERE pp.permisopadreId IS NOT NULL)")
-    List<Permiso> findPermisosHoja();
+    List<Permiso> findByCategoriaIgnoreCase(String categoria);
 
-    // Buscar permisos por múltiples códigos
-    List<Permiso> findByCodigoIn(List<String> codigos);
+    // Categorías específicas del sistema optimizado
+    @Query("SELECT p FROM Permiso p WHERE p.categoria = 'ADMINISTRACION' AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosAdministracion();
 
-    // Buscar permisos por múltiples IDs
-    List<Permiso> findByPermisoIdIn(List<Long> permisoIds);
+    @Query("SELECT p FROM Permiso p WHERE p.categoria = 'VENTAS' AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosVentas();
 
-    // Buscar permisos raíz (nivel 0 y sin padre)
-    @Query("SELECT p FROM Permiso p WHERE p.nivel = 0 AND p.permisoPadre IS NULL ORDER BY p.codigo")
+    @Query("SELECT p FROM Permiso p WHERE p.categoria = 'COMPRAS' AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosCompras();
+
+    @Query("SELECT p FROM Permiso p WHERE p.categoria = 'GESTION' AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosGestion();
+
+    @Query("SELECT p FROM Permiso p WHERE p.categoria = 'GENERAL' AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosGenerales();
+
+    // Permisos del sistema usando constantes optimizadas
+    @Query("SELECT p FROM Permiso p WHERE p.codigo IN ('ADMIN_TOTAL', 'VENDER_PRODUCTOS', 'COMPRAR_PRODUCTOS', 'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS') AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosDelSistema();
+
+    // Permisos personalizados (no del sistema)
+    @Query("SELECT p FROM Permiso p WHERE p.codigo NOT IN ('ADMIN_TOTAL', 'VENDER_PRODUCTOS', 'COMPRAR_PRODUCTOS', 'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS') AND p.activo = true ORDER BY p.codigo ASC")
+    List<Permiso> findPermisosPersonalizados();
+
+    // Verificar si es permiso del sistema
+    @Query("SELECT COUNT(p) > 0 FROM Permiso p WHERE p.codigo = :codigo AND p.codigo IN ('ADMIN_TOTAL', 'VENDER_PRODUCTOS', 'COMPRAR_PRODUCTOS', 'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS')")
+    boolean esPermisoDelSistema(@Param("codigo") String codigo);
+
+    // Jerarquía de permisos
+    @Query("SELECT p FROM Permiso p WHERE p.permisoPadre IS NULL AND p.activo = true ORDER BY p.nivel ASC")
     List<Permiso> findPermisosRaiz();
 
-    // Buscar todos los descendientes de un permiso (usando JPQL válido)
-    @Query("SELECT p FROM Permiso p WHERE p.permisopadreId = :permisoId ORDER BY p.nivel, p.codigo")
-    List<Permiso> findDescendientesDirectos(@Param("permisoId") Long permisoId);
+    List<Permiso> findByPermisopadreId(Long permisopadreId);
+
+    List<Permiso> findByPermisoPadre(Permiso permisoPadre);
+
+    @Query("SELECT p FROM Permiso p WHERE p.permisopadreId = :padreId AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findSubpermisosPorPadre(@Param("padreId") Long padreId);
+
+    // Permisos asignados a roles
+    @Query("SELECT DISTINCT p FROM Permiso p INNER JOIN RolPermiso rp ON p.permisoId = rp.permisoId WHERE p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosAsignados();
+
+    // Permisos no asignados a ningún rol
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND NOT EXISTS (SELECT rp FROM RolPermiso rp WHERE rp.permisoId = p.permisoId) ORDER BY p.codigo ASC")
+    List<Permiso> findPermisosNoAsignados();
+
+    // Permisos asignados a un rol específico
+    @Query("SELECT p FROM Permiso p INNER JOIN RolPermiso rp ON p.permisoId = rp.permisoId WHERE rp.rolId = :rolId AND p.activo = true ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosPorRol(@Param("rolId") Long rolId);
+
+    // Búsqueda de texto en código o descripción
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND (LOWER(p.codigo) LIKE LOWER(CONCAT('%', :texto, '%')) OR LOWER(p.descripcion) LIKE LOWER(CONCAT('%', :texto, '%'))) ORDER BY p.nivel ASC")
+    List<Permiso> findByTextoEnCodigoODescripcion(@Param("texto") String texto);
+
+    // Estadísticas de permisos
+    @Query("SELECT COUNT(p) FROM Permiso p WHERE p.activo = true")
+    long countPermisosActivos();
+
+    @Query("SELECT COUNT(p) FROM Permiso p WHERE p.activo = false")
+    long countPermisosInactivos();
+
+    @Query("SELECT p.categoria, COUNT(p) FROM Permiso p WHERE p.activo = true GROUP BY p.categoria ORDER BY COUNT(p) DESC")
+    List<Object[]> countPermisosPorCategoria();
+
+    @Query("SELECT p.nivel, COUNT(p) FROM Permiso p WHERE p.activo = true GROUP BY p.nivel ORDER BY p.nivel ASC")
+    List<Object[]> countPermisosPorNivel();
+
+    // Permisos más asignados
+    @Query("SELECT p, COUNT(rp) as asignaciones FROM Permiso p LEFT JOIN RolPermiso rp ON p.permisoId = rp.permisoId WHERE p.activo = true GROUP BY p.permisoId ORDER BY asignaciones DESC")
+    List<Object[]> findPermisosMasAsignados();
+
+    // Permisos críticos del sistema
+    @Query("SELECT p FROM Permiso p WHERE p.codigo = 'ADMIN_TOTAL' AND p.activo = true")
+    Optional<Permiso> findPermisoAdminTotal();
+
+    @Query("SELECT p FROM Permiso p WHERE p.codigo = 'VENDER_PRODUCTOS' AND p.activo = true")
+    Optional<Permiso> findPermisoVenderProductos();
+
+    @Query("SELECT p FROM Permiso p WHERE p.codigo = 'COMPRAR_PRODUCTOS' AND p.activo = true")
+    Optional<Permiso> findPermisoComprarProductos();
+
+    @Query("SELECT p FROM Permiso p WHERE p.codigo = 'GESTIONAR_USUARIOS' AND p.activo = true")
+    Optional<Permiso> findPermisoGestionarUsuarios();
+
+    @Query("SELECT p FROM Permiso p WHERE p.codigo = 'GESTIONAR_CATEGORIAS' AND p.activo = true")
+    Optional<Permiso> findPermisoGestionarCategorias();
+
+    // Validación de nombres únicos
+    @Query("SELECT COUNT(p) > 0 FROM Permiso p WHERE p.codigo = :codigo AND p.permisoId != :id")
+    boolean existsByCodigoAndPermisoIdNot(@Param("codigo") String codigo, @Param("id") Long id);
+
+    // Permisos ordenados por importancia
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true ORDER BY CASE WHEN p.codigo = 'ADMIN_TOTAL' THEN 1 WHEN p.codigo = 'GESTIONAR_USUARIOS' THEN 2 WHEN p.codigo = 'GESTIONAR_CATEGORIAS' THEN 3 WHEN p.codigo = 'VENDER_PRODUCTOS' THEN 4 WHEN p.codigo = 'COMPRAR_PRODUCTOS' THEN 5 ELSE 999 END, p.codigo ASC")
+    List<Permiso> findPermisosOrdenadosPorImportancia();
+
+    // Permisos recomendados para cada tipo de rol
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND p.codigo IN ('ADMIN_TOTAL', 'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS', 'VENDER_PRODUCTOS', 'COMPRAR_PRODUCTOS') ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosRecomendadosAdministrador();
+
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND p.codigo IN ('VENDER_PRODUCTOS', 'GESTIONAR_CATEGORIAS') ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosRecomendadosVendedor();
+
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND p.codigo = 'COMPRAR_PRODUCTOS'")
+    List<Permiso> findPermisosRecomendadosComprador();
+
+    // Permisos por compatibilidad de nivel
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND p.nivel >= :nivelUsuario ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosCompatiblesConNivel(@Param("nivelUsuario") Integer nivelUsuario);
+
+    // Buscar permisos que implican otros permisos
+    @Query("SELECT p FROM Permiso p WHERE p.activo = true AND p.nivel <= :nivelPermiso ORDER BY p.nivel ASC")
+    List<Permiso> findPermisosImplicadosPor(@Param("nivelPermiso") Integer nivelPermiso);
+
+    // Análisis de dependencias
+    @Query("SELECT p FROM Permiso p WHERE p.permisoPadre IS NOT NULL AND p.activo = true ORDER BY p.permisoPadre.codigo, p.codigo")
+    List<Permiso> findPermisosConDependencias();
+
+    // Permisos huérfanos (sin padre cuando deberían tenerlo)
+    @Query("SELECT p FROM Permiso p WHERE p.permisoPadre IS NULL AND p.nivel > 1 AND p.activo = true")
+    List<Permiso> findPermisosHuerfanos();
 }

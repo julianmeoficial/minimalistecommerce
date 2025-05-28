@@ -1,253 +1,162 @@
 package com.digital.mecommerces.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDate;
-import java.math.BigDecimal;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+/**
+ * DTO para el registro de nuevos usuarios en el sistema
+ * Optimizado para el sistema medbcommerce 3.0 con soporte para múltiples roles
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class RegistroDTO {
-    @NotBlank(message = "El nombre es obligatorio")
+
+    @NotBlank(message = "El nombre de usuario es obligatorio")
+    @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
+    @JsonProperty("nombre")
     private String nombre;
 
-    @Email(message = "Email debe ser válido")
     @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El formato de email es inválido")
+    @Size(max = 100, message = "El email no puede exceder 100 caracteres")
+    @JsonProperty("email")
     private String email;
 
     @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
+    @JsonProperty("password")
     private String password;
 
-    @NotNull(message = "El rol es obligatorio")
+    @NotNull(message = "El rol de usuario es obligatorio")
+    @JsonProperty("rolId")
     private Long rolId;
 
-    // Campos específicos para CompradorDetalles
-    private LocalDate fechaNacimiento;
-    private String preferencias;
-    private String direccionEnvio;
-    private String telefono;
-    private String direccionAlternativa;
-    private String telefonoAlternativo;
-    private Boolean notificacionEmail = true;
-    private Boolean notificacionSms = false;
-
-    // Campos específicos para VendedorDetalles
-    private String rut;
-    private String especialidad;
-    private String direccionComercial;
-    private String numRegistroFiscal;
-    private String documentoComercial;
-    private String tipoDocumento;
-    private String banco;
-    private String tipoCuenta;
-    private String numeroCuenta;
-
-    // Campos específicos para AdminDetalles
+    // === CAMPOS ESPECÍFICOS PARA ADMINISTRADOR ===
+    @JsonProperty("region")
     private String region;
+
+    @JsonProperty("nivelAcceso")
     private String nivelAcceso;
-    private String ipAcceso;
 
-    // Constructor vacío
-    public RegistroDTO() {}
+    // === CAMPOS ESPECÍFICOS PARA COMPRADOR ===
+    @JsonProperty("direccionEnvio")
+    private String direccionEnvio;
 
-    // Getters y Setters
+    @JsonProperty("telefono")
+    @Size(max = 20, message = "El teléfono no puede exceder 20 caracteres")
+    private String telefono;
 
-    // Campos básicos getters/setters
-    public String getNombre() {
-        return nombre;
-    }
+    @JsonProperty("direccionAlternativa")
+    private String direccionAlternativa;
 
-    public void setNombre(String nombre) {
+    @JsonProperty("telefonoAlternativo")
+    @Size(max = 20, message = "El teléfono alternativo no puede exceder 20 caracteres")
+    private String telefonoAlternativo;
+
+    // === CAMPOS ESPECÍFICOS PARA VENDEDOR ===
+    @JsonProperty("numRegistroFiscal")
+    @Size(max = 50, message = "El número de registro fiscal no puede exceder 50 caracteres")
+    private String numRegistroFiscal;
+
+    @JsonProperty("especialidad")
+    @Size(max = 100, message = "La especialidad no puede exceder 100 caracteres")
+    private String especialidad;
+
+    @JsonProperty("direccionComercial")
+    private String direccionComercial;
+
+    @JsonProperty("rfc")
+    @Size(max = 20, message = "El RFC no puede exceder 20 caracteres")
+    private String rfc;
+
+    // === CAMPOS ADICIONALES ===
+    @JsonProperty("aceptaTerminos")
+    private Boolean aceptaTerminos = false;
+
+    @JsonProperty("aceptaPrivacidad")
+    private Boolean aceptaPrivacidad = false;
+
+    @JsonProperty("recibirNotificaciones")
+    private Boolean recibirNotificaciones = true;
+
+    // Constructor para registro básico
+    public RegistroDTO(String nombre, String email, String password, Long rolId) {
         this.nombre = nombre;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
         this.password = password;
-    }
-
-    public Long getRolId() {
-        return rolId;
-    }
-
-    public void setRolId(Long rolId) {
         this.rolId = rolId;
+        this.aceptaTerminos = false;
+        this.aceptaPrivacidad = false;
+        this.recibirNotificaciones = true;
     }
 
-    // CompradorDetalles getters/setters
-    public LocalDate getFechaNacimiento() {
-        return fechaNacimiento;
-    }
-
-    public void setFechaNacimiento(LocalDate fechaNacimiento) {
-        this.fechaNacimiento = fechaNacimiento;
-    }
-
-    public String getPreferencias() {
-        return preferencias;
-    }
-
-    public void setPreferencias(String preferencias) {
-        this.preferencias = preferencias;
-    }
-
-    public String getDireccionEnvio() {
-        return direccionEnvio;
-    }
-
-    public void setDireccionEnvio(String direccionEnvio) {
+    // Constructor para registro de comprador
+    public RegistroDTO(String nombre, String email, String password, Long rolId,
+                       String direccionEnvio, String telefono) {
+        this(nombre, email, password, rolId);
         this.direccionEnvio = direccionEnvio;
-    }
-
-    public String getTelefono() {
-        return telefono;
-    }
-
-    public void setTelefono(String telefono) {
         this.telefono = telefono;
     }
 
-    public String getDireccionAlternativa() {
-        return direccionAlternativa;
-    }
-
-    public void setDireccionAlternativa(String direccionAlternativa) {
-        this.direccionAlternativa = direccionAlternativa;
-    }
-
-    public String getTelefonoAlternativo() {
-        return telefonoAlternativo;
-    }
-
-    public void setTelefonoAlternativo(String telefonoAlternativo) {
-        this.telefonoAlternativo = telefonoAlternativo;
-    }
-
-    public Boolean getNotificacionEmail() {
-        return notificacionEmail;
-    }
-
-    public void setNotificacionEmail(Boolean notificacionEmail) {
-        this.notificacionEmail = notificacionEmail;
-    }
-
-    public Boolean getNotificacionSms() {
-        return notificacionSms;
-    }
-
-    public void setNotificacionSms(Boolean notificacionSms) {
-        this.notificacionSms = notificacionSms;
-    }
-
-    // VendedorDetalles getters/setters
-    public String getRut() {
-        return rut;
-    }
-
-    public void setRut(String rut) {
-        this.rut = rut;
-    }
-
-    public String getEspecialidad() {
-        return especialidad;
-    }
-
-    public void setEspecialidad(String especialidad) {
+    // Constructor para registro de vendedor
+    public RegistroDTO(String nombre, String email, String password, Long rolId,
+                       String numRegistroFiscal, String especialidad, String direccionComercial) {
+        this(nombre, email, password, rolId);
+        this.numRegistroFiscal = numRegistroFiscal;
         this.especialidad = especialidad;
-    }
-
-    public String getDireccionComercial() {
-        return direccionComercial;
-    }
-
-    public void setDireccionComercial(String direccionComercial) {
         this.direccionComercial = direccionComercial;
     }
 
-    public String getNumRegistroFiscal() {
-        return numRegistroFiscal;
+    // Métodos de validación personalizada
+    public boolean isValidForRole(String rolNombre) {
+        switch (rolNombre.toUpperCase()) {
+            case "ADMINISTRADOR":
+                return isValidBasic();
+            case "COMPRADOR":
+                return isValidBasic() &&
+                        (direccionEnvio != null && !direccionEnvio.trim().isEmpty());
+            case "VENDEDOR":
+                return isValidBasic() &&
+                        (especialidad != null && !especialidad.trim().isEmpty());
+            default:
+                return isValidBasic();
+        }
     }
 
-    public void setNumRegistroFiscal(String numRegistroFiscal) {
-        this.numRegistroFiscal = numRegistroFiscal;
+    private boolean isValidBasic() {
+        return nombre != null && !nombre.trim().isEmpty() &&
+                email != null && !email.trim().isEmpty() && email.contains("@") &&
+                password != null && password.length() >= 6 &&
+                rolId != null && rolId > 0 &&
+                Boolean.TRUE.equals(aceptaTerminos) &&
+                Boolean.TRUE.equals(aceptaPrivacidad);
     }
 
-    public String getDocumentoComercial() {
-        return documentoComercial;
+    public boolean tieneInformacionCompleta() {
+        return isValidBasic() &&
+                ((direccionEnvio != null && telefono != null) || // Comprador
+                        (numRegistroFiscal != null && especialidad != null) || // Vendedor
+                        (region != null)); // Admin
     }
 
-    public void setDocumentoComercial(String documentoComercial) {
-        this.documentoComercial = documentoComercial;
-    }
-
-    public String getTipoDocumento() {
-        return tipoDocumento;
-    }
-
-    public void setTipoDocumento(String tipoDocumento) {
-        this.tipoDocumento = tipoDocumento;
-    }
-
-    public String getBanco() {
-        return banco;
-    }
-
-    public void setBanco(String banco) {
-        this.banco = banco;
-    }
-
-    public String getTipoCuenta() {
-        return tipoCuenta;
-    }
-
-    public void setTipoCuenta(String tipoCuenta) {
-        this.tipoCuenta = tipoCuenta;
-    }
-
-    public String getNumeroCuenta() {
-        return numeroCuenta;
-    }
-
-    public void setNumeroCuenta(String numeroCuenta) {
-        this.numeroCuenta = numeroCuenta;
-    }
-
-    // AdminDetalles getters/setters
-    public String getRegion() {
-        return region;
-    }
-
-    public void setRegion(String region) {
-        this.region = region;
-    }
-
-    public String getNivelAcceso() {
-        return nivelAcceso;
-    }
-
-    public void setNivelAcceso(String nivelAcceso) {
-        this.nivelAcceso = nivelAcceso;
-    }
-
-    public String getIpAcceso() {
-        return ipAcceso;
-    }
-
-    public void setIpAcceso(String ipAcceso) {
-        this.ipAcceso = ipAcceso;
+    // Método para limpiar datos sensibles en logs
+    public RegistroDTO toSafeLog() {
+        RegistroDTO safeDto = new RegistroDTO();
+        safeDto.setNombre(this.nombre);
+        safeDto.setEmail(this.email);
+        safeDto.setPassword("***"); // Ocultar contraseña
+        safeDto.setRolId(this.rolId);
+        safeDto.setRegion(this.region);
+        safeDto.setEspecialidad(this.especialidad);
+        // No incluir información sensible como RFC, teléfonos, etc.
+        return safeDto;
     }
 
     @Override
@@ -255,14 +164,12 @@ public class RegistroDTO {
         return "RegistroDTO{" +
                 "nombre='" + nombre + '\'' +
                 ", email='" + email + '\'' +
+                ", password='***'" + // Nunca mostrar la contraseña
                 ", rolId=" + rolId +
-                ", fechaNacimiento=" + fechaNacimiento +
-                ", direccionEnvio='" + direccionEnvio + '\'' +
-                ", telefono='" + telefono + '\'' +
-                ", rut='" + rut + '\'' +
-                ", especialidad='" + especialidad + '\'' +
                 ", region='" + region + '\'' +
-                ", nivelAcceso='" + nivelAcceso + '\'' +
+                ", especialidad='" + especialidad + '\'' +
+                ", aceptaTerminos=" + aceptaTerminos +
+                ", aceptaPrivacidad=" + aceptaPrivacidad +
                 '}';
     }
 }

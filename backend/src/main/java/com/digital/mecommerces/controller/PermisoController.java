@@ -1,17 +1,32 @@
 package com.digital.mecommerces.controller;
 
-import com.digital.mecommerces.exception.ResourceNotFoundException;
+import com.digital.mecommerces.constants.RoleConstants;
+import com.digital.mecommerces.dto.PermisoDTO;
 import com.digital.mecommerces.model.Permiso;
 import com.digital.mecommerces.service.PermisoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
+/**
+ * Controlador para gestión de permisos del sistema
+ * Optimizado para el sistema medbcommerce 3.0
+ */
 @RestController
 @RequestMapping("/api/permisos")
+@Tag(name = "Permisos", description = "APIs para gestión de permisos del sistema")
+@SecurityRequirement(name = "bearerAuth")
+@Slf4j
 public class PermisoController {
 
     private final PermisoService permisoService;
@@ -21,108 +36,220 @@ public class PermisoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Permiso>> listarPermisos() {
+    @Operation(summary = "Listar todos los permisos", description = "Obtiene lista completa de permisos del sistema")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<List<PermisoDTO>> listarPermisos() {
+        log.info("🔑 Obteniendo lista de todos los permisos");
+
         List<Permiso> permisos = permisoService.obtenerPermisos();
-        return ResponseEntity.ok(permisos);
+        List<PermisoDTO> permisosDTO = permisos.stream()
+                .map(PermisoDTO::fromEntity)
+                .toList();
+
+        log.info("✅ {} permisos encontrados", permisosDTO.size());
+        return ResponseEntity.ok(permisosDTO);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Permiso> obtenerPermiso(@PathVariable Long id) {
-        Permiso permiso = permisoService.obtenerPermisoPorId(id);
-        return ResponseEntity.ok(permiso);
+    @GetMapping("/del-sistema")
+    @Operation(summary = "Listar permisos del sistema", description = "Obtiene permisos críticos del sistema")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<List<PermisoDTO>> listarPermisosDelSistema() {
+        log.info("🔑 Obteniendo permisos del sistema");
+
+        List<Permiso> permisos = permisoService.obtenerPermisosDelSistema();
+        List<PermisoDTO> permisosDTO = permisos.stream()
+                .map(PermisoDTO::fromEntity)
+                .map(PermisoDTO::toSimple)
+                .toList();
+
+        return ResponseEntity.ok(permisosDTO);
     }
 
-    @GetMapping("/codigo/{codigo}")
-    public ResponseEntity<Permiso> obtenerPermisoPorCodigo(@PathVariable String codigo) {
-        // CORREGIDO: Manejar Optional correctamente
-        Optional<Permiso> permisoOpt = permisoService.obtenerPermisoPorCodigo(codigo);
-        if (permisoOpt.isPresent()) {
-            return ResponseEntity.ok(permisoOpt.get());
-        } else {
-            throw new ResourceNotFoundException("Permiso no encontrado con código: " + codigo);
-        }
-    }
+    @GetMapping("/categoria/{categoria}")
+    @Operation(summary = "Listar permisos por categoría")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<List<PermisoDTO>> listarPermisosPorCategoria(@PathVariable String categoria) {
+        log.info("🔑 Obteniendo permisos por categoría: {}", categoria);
 
-    @GetMapping("/padre")
-    public ResponseEntity<List<Permiso>> obtenerPermisosPadre() {
-        List<Permiso> permisosPadre = permisoService.obtenerPermisosPadre();
-        return ResponseEntity.ok(permisosPadre);
-    }
+        List<Permiso> permisos = permisoService.obtenerPermisosPorCategoria(categoria);
+        List<PermisoDTO> permisosDTO = permisos.stream()
+                .map(PermisoDTO::fromEntity)
+                .toList();
 
-    @GetMapping("/hijos/{permisopadreId}")
-    public ResponseEntity<List<Permiso>> obtenerPermisosHijos(@PathVariable Long permisopadreId) {
-        List<Permiso> permisosHijos = permisoService.obtenerPermisosHijos(permisopadreId);
-        return ResponseEntity.ok(permisosHijos);
+        return ResponseEntity.ok(permisosDTO);
     }
 
     @GetMapping("/nivel/{nivel}")
-    public ResponseEntity<List<Permiso>> obtenerPermisosPorNivel(@PathVariable Integer nivel) {
+    @Operation(summary = "Listar permisos por nivel")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<List<PermisoDTO>> listarPermisosPorNivel(@PathVariable Integer nivel) {
+        log.info("🔑 Obteniendo permisos por nivel: {}", nivel);
+
         List<Permiso> permisos = permisoService.obtenerPermisosPorNivel(nivel);
-        return ResponseEntity.ok(permisos);
+        List<PermisoDTO> permisosDTO = permisos.stream()
+                .map(PermisoDTO::fromEntity)
+                .toList();
+
+        return ResponseEntity.ok(permisosDTO);
     }
 
-    @GetMapping("/jerarquia")
-    public ResponseEntity<List<Permiso>> obtenerJerarquiaCompleta() {
-        List<Permiso> jerarquia = permisoService.obtenerJerarquiaCompleta();
-        return ResponseEntity.ok(jerarquia);
+    @GetMapping("/{id}")
+    @Operation(summary = "Obtener permiso por ID")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<PermisoDTO> obtenerPermiso(@PathVariable Long id) {
+        log.info("🔑 Obteniendo permiso por ID: {}", id);
+
+        Permiso permiso = permisoService.obtenerPermisoPorId(id);
+        PermisoDTO permisoDTO = PermisoDTO.fromEntity(permiso);
+
+        return ResponseEntity.ok(permisoDTO);
     }
 
-    @GetMapping("/hoja")
-    public ResponseEntity<List<Permiso>> obtenerPermisosHoja() {
-        List<Permiso> permisosHoja = permisoService.obtenerPermisosHoja();
-        return ResponseEntity.ok(permisosHoja);
-    }
+    @GetMapping("/codigo/{codigo}")
+    @Operation(summary = "Obtener permiso por código")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<PermisoDTO> obtenerPermisoPorCodigo(@PathVariable String codigo) {
+        log.info("🔑 Obteniendo permiso por código: {}", codigo);
 
-    @GetMapping("/buscar")
-    public ResponseEntity<List<Permiso>> buscarPermisos(@RequestParam String termino) {
-        List<Permiso> permisos = permisoService.buscarPermisos(termino);
-        return ResponseEntity.ok(permisos);
+        Permiso permiso = permisoService.obtenerPermisoPorCodigo(codigo);
+        PermisoDTO permisoDTO = PermisoDTO.fromEntity(permiso);
+
+        return ResponseEntity.ok(permisoDTO);
     }
 
     @PostMapping
-    public ResponseEntity<Permiso> crearPermiso(@RequestBody Permiso permiso) {
+    @Operation(summary = "Crear nuevo permiso")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<PermisoDTO> crearPermiso(@Valid @RequestBody PermisoDTO permisoDTO) {
+        log.info("🔑 Creando nuevo permiso: {}", permisoDTO.getCodigo());
+
+        Permiso permiso = new Permiso();
+        permiso.setCodigo(permisoDTO.getCodigo());
+        permiso.setDescripcion(permisoDTO.getDescripcion());
+        permiso.setNivel(permisoDTO.getNivel());
+        permiso.setCategoria(permisoDTO.getCategoria());
+
+        if (permisoDTO.getPermisopadreId() != null) {
+            Permiso permisoPadre = permisoService.obtenerPermisoPorId(permisoDTO.getPermisopadreId());
+            permiso.setPermisoPadre(permisoPadre);
+        }
+
         Permiso nuevoPermiso = permisoService.crearPermiso(permiso);
-        return new ResponseEntity<>(nuevoPermiso, HttpStatus.CREATED);
-    }
+        PermisoDTO respuesta = PermisoDTO.fromEntity(nuevoPermiso);
 
-    @PostMapping("/con-padre")
-    public ResponseEntity<Permiso> crearPermisoConPadre(
-            @RequestParam String codigo,
-            @RequestParam String descripcion,
-            @RequestParam Integer nivel,
-            @RequestParam(required = false) Long permisopadreId) {
-
-        Permiso nuevoPermiso = permisoService.crearPermisoConPadre(codigo, descripcion, nivel, permisopadreId);
-        return new ResponseEntity<>(nuevoPermiso, HttpStatus.CREATED);
+        log.info("✅ Permiso creado con ID: {}", nuevoPermiso.getPermisoId());
+        return new ResponseEntity<>(respuesta, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Permiso> actualizarPermiso(@PathVariable Long id, @RequestBody Permiso permiso) {
-        Permiso permisoActualizado = permisoService.actualizarPermiso(id, permiso);
-        return ResponseEntity.ok(permisoActualizado);
+    @Operation(summary = "Actualizar permiso")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<PermisoDTO> actualizarPermiso(@PathVariable Long id,
+                                                        @Valid @RequestBody PermisoDTO permisoDTO) {
+        log.info("🔑 Actualizando permiso ID: {}", id);
+
+        Permiso permisoDetails = new Permiso();
+        permisoDetails.setCodigo(permisoDTO.getCodigo());
+        permisoDetails.setDescripcion(permisoDTO.getDescripcion());
+        permisoDetails.setNivel(permisoDTO.getNivel());
+        permisoDetails.setCategoria(permisoDTO.getCategoria());
+        permisoDetails.setActivo(permisoDTO.getActivo());
+
+        Permiso permisoActualizado = permisoService.actualizarPermiso(id, permisoDetails);
+        PermisoDTO respuesta = PermisoDTO.fromEntity(permisoActualizado);
+
+        log.info("✅ Permiso actualizado exitosamente");
+        return ResponseEntity.ok(respuesta);
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar permiso")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
     public ResponseEntity<Void> eliminarPermiso(@PathVariable Long id) {
+        log.info("🔑 Eliminando permiso ID: {}", id);
+
         permisoService.eliminarPermiso(id);
+
+        log.info("✅ Permiso eliminado exitosamente");
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/existe/{codigo}")
-    public ResponseEntity<Boolean> existePermiso(@PathVariable String codigo) {
-        boolean existe = permisoService.existePermiso(codigo);
-        return ResponseEntity.ok(existe);
+    @PostMapping("/inicializar-sistema")
+    @Operation(summary = "Inicializar permisos del sistema")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<Map<String, Object>> inicializarPermisosDelSistema() {
+        log.info("🔑 Inicializando permisos del sistema");
+
+        try {
+            permisoService.inicializarPermisosDelSistema();
+
+            Map<String, Object> response = Map.of(
+                    "mensaje", "Permisos del sistema inicializados exitosamente",
+                    "timestamp", LocalDateTime.now()
+            );
+
+            log.info("✅ Permisos del sistema inicializados");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error inicializando permisos: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Error inicializando permisos: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now()
+            ));
+        }
     }
 
-    @GetMapping("/contar")
-    public ResponseEntity<Long> contarPermisos() {
-        long total = permisoService.contarPermisos();
-        return ResponseEntity.ok(total);
+    @GetMapping("/estadisticas")
+    @Operation(summary = "Obtener estadísticas de permisos")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<Map<String, Object>> obtenerEstadisticas() {
+        log.info("🔑 Obteniendo estadísticas de permisos");
+
+        Map<String, Object> estadisticas = Map.of(
+                "total", permisoService.contarPermisos(),
+                "delSistema", permisoService.contarPermisosDelSistema(),
+                "personalizados", permisoService.contarPermisosPersonalizados(),
+                "porCategoria", permisoService.obtenerEstadisticasPorCategoria(),
+                "porNivel", permisoService.obtenerEstadisticasPorNivel(),
+                "huerfanos", permisoService.contarPermisosHuerfanos(),
+                "timestamp", LocalDateTime.now()
+        );
+
+        return ResponseEntity.ok(estadisticas);
     }
 
-    @GetMapping("/contar/nivel/{nivel}")
-    public ResponseEntity<Long> contarPermisosPorNivel(@PathVariable Integer nivel) {
-        long total = permisoService.contarPermisosPorNivel(nivel);
-        return ResponseEntity.ok(total);
+    @GetMapping("/jerarquia")
+    @Operation(summary = "Obtener jerarquía de permisos")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<List<PermisoDTO>> obtenerJerarquiaPermisos() {
+        log.info("🔑 Obteniendo jerarquía de permisos");
+
+        List<Permiso> permisos = permisoService.obtenerJerarquiaPermisos();
+        List<PermisoDTO> jerarquia = permisos.stream()
+                .map(PermisoDTO::fromEntity)
+                .sorted((p1, p2) -> {
+                    // Ordenar por nivel y luego por código
+                    int nivelComparison = Integer.compare(
+                            p1.getNivel() != null ? p1.getNivel() : 999,
+                            p2.getNivel() != null ? p2.getNivel() : 999
+                    );
+                    return nivelComparison != 0 ? nivelComparison : p1.getCodigo().compareTo(p2.getCodigo());
+                })
+                .toList();
+
+        return ResponseEntity.ok(jerarquia);
+    }
+
+    @PostMapping("/verificar-integridad")
+    @Operation(summary = "Verificar integridad de permisos")
+    @PreAuthorize("hasAuthority('" + RoleConstants.PERM_ADMIN_TOTAL + "')")
+    public ResponseEntity<Map<String, Object>> verificarIntegridad() {
+        log.info("🔑 Verificando integridad de permisos");
+
+        Map<String, Object> resultado = permisoService.verificarIntegridadPermisos();
+        resultado.put("timestamp", LocalDateTime.now());
+
+        return ResponseEntity.ok(resultado);
     }
 }

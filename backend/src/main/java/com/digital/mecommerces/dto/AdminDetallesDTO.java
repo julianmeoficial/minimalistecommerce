@@ -1,82 +1,158 @@
 package com.digital.mecommerces.dto;
 
-import jakarta.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
+/**
+ * DTO para detalles específicos de administradores
+ * Optimizado para el sistema medbcommerce 3.0
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AdminDetallesDTO {
 
+    @JsonProperty("usuarioId")
     private Long usuarioId;
 
-    @Size(max = 100, message = "La región no puede tener más de 100 caracteres")
+    @NotBlank(message = "La región es obligatoria")
+    @JsonProperty("region")
     private String region;
 
-    @Size(max = 255, message = "El nivel de acceso no puede tener más de 255 caracteres")
+    @NotBlank(message = "El nivel de acceso es obligatorio")
+    @JsonProperty("nivelAcceso")
     private String nivelAcceso;
 
-    @Size(max = 255, message = "La última acción no puede tener más de 255 caracteres")
+    @JsonProperty("configuraciones")
+    private String configuraciones;
+
+    @JsonProperty("ultimaAccion")
     private String ultimaAccion;
 
+    @JsonProperty("ultimoLogin")
     private LocalDateTime ultimoLogin;
 
-    @Size(max = 50, message = "La IP de acceso no puede tener más de 50 caracteres")
+    @JsonProperty("ultimaActividad")
+    private LocalDateTime ultimaActividad;
+
+    @JsonProperty("ipAcceso")
     private String ipAcceso;
 
-    // Constructor vacío
-    public AdminDetallesDTO() {}
+    @JsonProperty("sesionesActivas")
+    private Integer sesionesActivas;
 
-    // Constructor con parámetros básicos
+    @JsonProperty("activo")
+    private Boolean activo;
+
+    // Información del usuario asociado
+    @JsonProperty("usuarioNombre")
+    private String usuarioNombre;
+
+    @JsonProperty("usuarioEmail")
+    private String usuarioEmail;
+
+    // Constructor básico para creación
     public AdminDetallesDTO(String region, String nivelAcceso) {
         this.region = region;
         this.nivelAcceso = nivelAcceso;
+        this.activo = true;
+        this.sesionesActivas = 0;
     }
 
-    // Getters y Setters
-    public Long getUsuarioId() {
-        return usuarioId;
-    }
-
-    public void setUsuarioId(Long usuarioId) {
+    // Constructor con usuario
+    public AdminDetallesDTO(Long usuarioId, String region, String nivelAcceso) {
         this.usuarioId = usuarioId;
-    }
-
-    public String getRegion() {
-        return region;
-    }
-
-    public void setRegion(String region) {
         this.region = region;
-    }
-
-    public String getNivelAcceso() {
-        return nivelAcceso;
-    }
-
-    public void setNivelAcceso(String nivelAcceso) {
         this.nivelAcceso = nivelAcceso;
+        this.activo = true;
+        this.sesionesActivas = 0;
     }
 
-    public String getUltimaAccion() {
-        return ultimaAccion;
+    // Métodos de validación
+    public boolean isValid() {
+        return region != null && !region.trim().isEmpty() &&
+                nivelAcceso != null && !nivelAcceso.trim().isEmpty();
     }
 
-    public void setUltimaAccion(String ultimaAccion) {
-        this.ultimaAccion = ultimaAccion;
+    public boolean esSuperAdmin() {
+        return "SUPER".equals(nivelAcceso) || "TOTAL".equals(nivelAcceso);
     }
 
-    public LocalDateTime getUltimoLogin() {
-        return ultimoLogin;
+    public boolean esAdminRegional() {
+        return "REGIONAL".equals(nivelAcceso);
     }
 
-    public void setUltimoLogin(LocalDateTime ultimoLogin) {
-        this.ultimoLogin = ultimoLogin;
+    public boolean tieneAccesoTotal() {
+        return esSuperAdmin() || "ADMIN_TOTAL".equals(nivelAcceso);
     }
 
-    public String getIpAcceso() {
-        return ipAcceso;
+    // Método para crear desde entidad
+    public static AdminDetallesDTO fromEntity(com.digital.mecommerces.model.AdminDetalles adminDetalles) {
+        if (adminDetalles == null) return null;
+
+        AdminDetallesDTO dto = new AdminDetallesDTO();
+        dto.setUsuarioId(adminDetalles.getUsuarioId());
+        dto.setRegion(adminDetalles.getRegion());
+        dto.setNivelAcceso(adminDetalles.getNivelAcceso());
+        dto.setConfiguraciones(adminDetalles.getConfiguraciones());
+        dto.setUltimaAccion(adminDetalles.getUltimaAccion());
+        dto.setUltimoLogin(adminDetalles.getUltimoLogin());
+        dto.setUltimaActividad(adminDetalles.getUltimaActividad());
+        dto.setIpAcceso(adminDetalles.getIpAcceso());
+        dto.setSesionesActivas(adminDetalles.getSesionesActivas());
+        dto.setActivo(adminDetalles.getActivo());
+
+        if (adminDetalles.getUsuario() != null) {
+            dto.setUsuarioNombre(adminDetalles.getUsuario().getUsuarioNombre());
+            dto.setUsuarioEmail(adminDetalles.getUsuario().getEmail());
+        }
+
+        return dto;
     }
 
-    public void setIpAcceso(String ipAcceso) {
-        this.ipAcceso = ipAcceso;
+    // Método para crear configuraciones como Map
+    public Map<String, Object> getConfiguracionesAsMap() {
+        if (configuraciones == null || configuraciones.trim().isEmpty()) {
+            return Map.of();
+        }
+
+        try {
+            // Implementar parsing de configuraciones JSON si es necesario
+            return Map.of("raw", configuraciones);
+        } catch (Exception e) {
+            return Map.of("error", "Configuraciones inválidas");
+        }
+    }
+
+    // Método para establecer configuraciones desde Map
+    public void setConfiguracionesFromMap(Map<String, Object> configMap) {
+        if (configMap == null || configMap.isEmpty()) {
+            this.configuraciones = null;
+            return;
+        }
+
+        try {
+            // Implementar serialización a JSON si es necesario
+            this.configuraciones = configMap.toString();
+        } catch (Exception e) {
+            this.configuraciones = "{}";
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "AdminDetallesDTO{" +
+                "usuarioId=" + usuarioId +
+                ", region='" + region + '\'' +
+                ", nivelAcceso='" + nivelAcceso + '\'' +
+                ", usuarioEmail='" + usuarioEmail + '\'' +
+                ", activo=" + activo +
+                '}';
     }
 }

@@ -1,6 +1,6 @@
 package com.digital.mecommerces.service;
 
-import com.digital.mecommerces.dto.PasswordResetTokensDTO;
+import com.digital.mecommerces.exception.BusinessException;
 import com.digital.mecommerces.exception.ResourceNotFoundException;
 import com.digital.mecommerces.exception.TokenExpiredException;
 import com.digital.mecommerces.exception.TokenInvalidException;
@@ -18,221 +18,304 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class PasswordResetTokensService {
 
-    private final PasswordResetTokensRepository tokenRepository;
+    private final PasswordResetTokensRepository passwordResetTokensRepository;
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
-    @Value("${app.password-reset.token-expiration-hours:24}")
+    @Value("${app.password-reset.token-expiration-hours:1}")
     private int tokenExpirationHours;
+
+    @Value("${app.password-reset.max-attempts:3}")
+    private int maxAttempts;
+
+    @Value("${app.password-reset.rate-limit-minutes:15}")
+    private int rateLimitMinutes;
 
     @Value("${app.password-reset.max-tokens-per-user:3}")
     private int maxTokensPerUser;
 
-    public PasswordResetTokensService(PasswordResetTokensRepository tokenRepository,
+    public PasswordResetTokensService(PasswordResetTokensRepository passwordResetTokensRepository,
                                       UsuarioRepository usuarioRepository,
                                       PasswordEncoder passwordEncoder,
                                       EmailService emailService) {
-        this.tokenRepository = tokenRepository;
+        this.passwordResetTokensRepository = passwordResetTokensRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
 
     @Transactional
-    public PasswordResetTokensDTO solicitarResetPassword(String email) {
-        log.info("Solicitando reset de password para email: {}", email);
+    public void crearTokenResetPassword(String email, String ipSolicitante, String userAgent) {
+        log.info("🔑 Creando token de reset de contraseña para email: {}", email);
 
-        Usuario usuario = usuarioRepository.findByEmail(email)
+        // Verificar que el usuario existe
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
 
-        // Verificar que el usuario esté activo
-        if (!usuario.getActivo()) {
-            throw new IllegalStateException("El usuario está inactivo");
-        }
+        // Verificar rate limiting por email
+        verificarRateLimitingPorEmail(email);
 
-        // Verificar límite de tokens activos
-        long tokensActivos = tokenRepository.countValidTokensByUsuario(usuario, LocalDateTime.now());
-        if (tokensActivos >= maxTokensPerUser) {
-            log.warn("Usuario {} ha alcanzado el límite de tokens activos", email);
-            throw new IllegalStateException("Ha alcanzado el límite máximo de solicitudes de reset. " +
-                    "Espere a que expiren los tokens existentes o use uno de los tokens ya enviados.");
-        }
+        // Verificar rate limiting por IP
+        verificarRateLimitingPorIp(ipSolicitante);
+
+        // Verificar límite de tokens activos por usuario
+        verificarLimiteTokensPorUsuario(usuario.getUsuarioId());
+
+        // Desactivar tokens anteriores del usuario
+        desactivarTokensActivosDeUsuario(usuario.getUsuarioId());
 
         // Generar nuevo token
-        String token = generarToken();
-        LocalDateTime fechaExpiracion = LocalDateTime.now().plusHours(tokenExpirationHours);
+        String token = generarTokenSeguro();
+        LocalDateTime expiracion = LocalDateTime.now().plusHours(tokenExpirationHours);
 
-        PasswordResetTokens resetToken = new PasswordResetTokens(usuario, token, fechaExpiracion);
-        resetToken = tokenRepository.save(resetToken);
+        // Crear nuevo token
+        PasswordResetTokens resetToken = new PasswordResetTokens(usuario, token, expiracion, ipSolicitante);
+        resetToken.setUserAgent(userAgent);
 
-        // Enviar email (asíncrono)
-        try {
-            emailService.enviarEmailResetPassword(usuario.getEmail(), usuario.getUsuarioNombre(), token);
-            log.info("Email de reset enviado exitosamente a: {}", email);
-        } catch (Exception e) {
-            log.error("Error enviando email de reset a {}: {}", email, e.getMessage());
-            // No fallar la operación si el email no se puede enviar
-        }
+        passwordResetTokensRepository.save(resetToken);
 
-        log.info("Token de reset creado exitosamente para usuario: {}", email);
-        return convertirADTO(resetToken);
+        // Enviar email
+        emailService.enviarEmailResetPassword(usuario, token);
+
+        log.info("✅ Token de reset creado exitosamente para: {}", email);
     }
 
     @Transactional
-    public void resetPassword(String token, String nuevaPassword) {
-        log.info("Intentando reset de password con token: {}", token.substring(0, 8) + "...");
+    public void resetearPassword(String token, String nuevaPassword) {
+        log.info("🔄 Procesando reset de contraseña con token");
 
-        PasswordResetTokens resetToken = tokenRepository.findValidTokenByToken(token, LocalDateTime.now())
-                .orElseThrow(() -> new TokenInvalidException("Token inválido o expirado"));
+        // Validar token
+        PasswordResetTokens resetToken = validarToken(token);
 
-        // Verificar que el token no esté usado
-        if (resetToken.getUsado()) {
-            throw new TokenInvalidException("El token ya ha sido utilizado");
-        }
+        // Verificar que la nueva contraseña sea válida
+        validarNuevaPassword(nuevaPassword);
 
-        // Verificar que no esté expirado
-        if (resetToken.isExpired()) {
-            throw new TokenExpiredException("El token ha expirado");
-        }
-
+        // Actualizar contraseña del usuario
         Usuario usuario = resetToken.getUsuario();
-
-        // Actualizar password
         usuario.setPassword(passwordEncoder.encode(nuevaPassword));
-        usuario.setUpdatedat(LocalDateTime.now());
         usuarioRepository.save(usuario);
 
         // Marcar token como usado
-        resetToken.setUsado(true);
-        tokenRepository.save(resetToken);
+        resetToken.marcarComoUsado();
+        passwordResetTokensRepository.save(resetToken);
 
-        // Invalidar todos los otros tokens del usuario
-        tokenRepository.markAllUserTokensAsUsed(usuario);
+        // Desactivar otros tokens del usuario
+        desactivarTokensActivosDeUsuario(usuario.getUsuarioId());
 
-        log.info("Password actualizado exitosamente para usuario: {}", usuario.getEmail());
+        log.info("✅ Contraseña actualizada exitosamente para usuario: {}", usuario.getEmail());
+    }
 
-        // Enviar email de confirmación
-        try {
-            emailService.enviarEmailConfirmacionReset(usuario.getEmail(), usuario.getUsuarioNombre());
-        } catch (Exception e) {
-            log.error("Error enviando email de confirmación a {}: {}", usuario.getEmail(), e.getMessage());
+    public void verificarValidezToken(String token) {
+        log.info("🔍 Validando token de reset");
+
+        PasswordResetTokens resetToken = passwordResetTokensRepository.findByToken(token)
+                .orElseThrow(() -> new TokenInvalidException("Token de reset no válido"));
+
+        if (!resetToken.puedeSerUtilizado()) {
+            String estado = resetToken.getEstadoToken();
+
+            switch (estado) {
+                case "EXPIRADO" -> {
+                    log.warn("⏰ Token expirado: {}", token);
+                    throw new TokenExpiredException("El token ha expirado. Solicita un nuevo reset de contraseña.");
+                }
+                case "USADO" -> {
+                    log.warn("🔄 Token ya usado: {}", token);
+                    throw new TokenInvalidException("Este token ya ha sido utilizado");
+                }
+                case "BLOQUEADO" -> {
+                    log.warn("🚫 Token bloqueado por demasiados intentos: {}", token);
+                    throw new TokenInvalidException("Token bloqueado por demasiados intentos fallidos");
+                }
+                case "INACTIVO" -> {
+                    log.warn("❌ Token inactivo: {}", token);
+                    throw new TokenInvalidException("Token inactivo");
+                }
+                default -> {
+                    log.warn("⚠️ Token en estado no válido: {}", estado);
+                    throw new TokenInvalidException("Token no válido");
+                }
+            }
         }
-    }
 
-    public boolean validarToken(String token) {
-        log.debug("Validando token: {}", token.substring(0, 8) + "...");
-
-        return tokenRepository.findValidTokenByToken(token, LocalDateTime.now()).isPresent();
-    }
-
-    public PasswordResetTokensDTO obtenerTokenInfo(String token) {
-        log.debug("Obteniendo información del token: {}", token.substring(0, 8) + "...");
-
-        PasswordResetTokens resetToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new ResourceNotFoundException("Token no encontrado"));
-
-        return convertirADTO(resetToken);
-    }
-
-    public List<PasswordResetTokensDTO> obtenerTokensPorUsuario(Long usuarioId) {
-        log.debug("Obteniendo tokens para usuario: {}", usuarioId);
-
-        List<PasswordResetTokens> tokens = tokenRepository.findByUsuarioUsuarioId(usuarioId);
-        return tokens.stream()
-                .map(this::convertirADTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<PasswordResetTokensDTO> obtenerTokensValidos(Long usuarioId) {
-        log.debug("Obteniendo tokens válidos para usuario: {}", usuarioId);
-
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-
-        List<PasswordResetTokens> tokens = tokenRepository.findValidTokensByUsuario(usuario, LocalDateTime.now());
-        return tokens.stream()
-                .map(this::convertirADTO)
-                .collect(Collectors.toList());
+        log.info("✅ Token validado exitosamente");
     }
 
     @Transactional
-    public void invalidarTokensUsuario(Long usuarioId) {
-        log.info("Invalidando todos los tokens del usuario: {}", usuarioId);
+    public void incrementarIntentosToken(String token) {
+        log.info("📊 Incrementando intentos para token");
 
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        PasswordResetTokens resetToken = passwordResetTokensRepository.findByToken(token)
+                .orElseThrow(() -> new TokenInvalidException("Token no encontrado"));
 
-        tokenRepository.markAllUserTokensAsUsed(usuario);
-        log.info("Tokens invalidados exitosamente para usuario: {}", usuarioId);
+        resetToken.incrementarIntentos();
+        passwordResetTokensRepository.save(resetToken);
+
+        if (resetToken.alcanzóLimiteIntentos()) {
+            log.warn("⚠️ Token bloqueado por demasiados intentos: {}", token);
+        }
+    }
+
+    public PasswordResetTokens obtenerInformacionToken(String token) {
+        return passwordResetTokensRepository.findByToken(token)
+                .orElseThrow(() -> new TokenInvalidException("Token no encontrado"));
+    }
+
+    public List<PasswordResetTokens> obtenerTokensActivosPorUsuario(Long usuarioId) {
+        return passwordResetTokensRepository.findTokensValidosPorUsuario(usuarioId, LocalDateTime.now());
+    }
+
+    public List<PasswordResetTokens> obtenerTokensExpirados() {
+        return passwordResetTokensRepository.findTokensExpirados(LocalDateTime.now());
     }
 
     @Transactional
     public void limpiarTokensExpirados() {
-        log.info("Iniciando limpieza de tokens expirados");
+        log.info("🧹 Limpiando tokens expirados");
 
-        LocalDateTime now = LocalDateTime.now();
-        List<PasswordResetTokens> tokensExpirados = tokenRepository.findExpiredTokens(now);
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime fechaLimite = ahora.minusDays(7); // Eliminar tokens de más de 7 días
 
-        if (!tokensExpirados.isEmpty()) {
-            tokenRepository.deleteExpiredTokens(now);
-            log.info("Eliminados {} tokens expirados", tokensExpirados.size());
-        } else {
-            log.debug("No se encontraron tokens expirados para eliminar");
+        List<PasswordResetTokens> tokensParaLimpiar = passwordResetTokensRepository
+                .findTokensParaLimpiar(ahora, fechaLimite);
+
+        passwordResetTokensRepository.deleteAll(tokensParaLimpiar);
+
+        log.info("✅ Limpieza completada. {} tokens eliminados", tokensParaLimpiar.size());
+    }
+
+    public long contarTokensActivos() {
+        return passwordResetTokensRepository.countTokensUsados();
+    }
+
+    public long contarTokensExpirados() {
+        return passwordResetTokensRepository.countTokensExpiradosNoUsados(LocalDateTime.now());
+    }
+
+    public List<Object[]> obtenerEstadisticasPorFecha(LocalDateTime inicio, LocalDateTime fin) {
+        return passwordResetTokensRepository.findEstadisticasPorFecha(inicio, fin);
+    }
+
+    // Métodos privados de validación y utilidad
+
+    private PasswordResetTokens validarToken(String token) {
+        PasswordResetTokens resetToken = passwordResetTokensRepository.findByToken(token)
+                .orElseThrow(() -> new TokenInvalidException("Token de reset no válido"));
+
+        if (!resetToken.puedeSerUtilizado()) {
+            String estado = resetToken.getEstadoToken();
+
+            switch (estado) {
+                case "EXPIRADO" -> throw new TokenExpiredException("El token ha expirado");
+                case "USADO" -> throw new TokenInvalidException("Este token ya ha sido utilizado");
+                case "BLOQUEADO" -> throw new TokenInvalidException("Token bloqueado por demasiados intentos");
+                case "INACTIVO" -> throw new TokenInvalidException("Token inactivo");
+                default -> throw new TokenInvalidException("Token no válido");
+            }
+        }
+
+        return resetToken;
+    }
+
+    private void verificarRateLimitingPorEmail(String email) {
+        LocalDateTime limite = LocalDateTime.now().minusMinutes(rateLimitMinutes);
+        long tokenCount = passwordResetTokensRepository.countTokensRecientesPorEmail(email, limite);
+
+        if (tokenCount >= maxTokensPerUser) {
+            log.warn("⚠️ Rate limit excedido para email: {}", email);
+            throw new BusinessException("Demasiadas solicitudes de reset. Intenta nuevamente en " +
+                    rateLimitMinutes + " minutos");
         }
     }
 
-    @Transactional
-    public void limpiarTokensUsadosAntiguos(int diasAntiguedad) {
-        log.info("Iniciando limpieza de tokens usados antiguos (más de {} días)", diasAntiguedad);
+    private void verificarRateLimitingPorIp(String ip) {
+        LocalDateTime limite = LocalDateTime.now().minusMinutes(rateLimitMinutes);
+        long tokenCount = passwordResetTokensRepository.countTokensRecientesPorIp(ip, limite);
 
-        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(diasAntiguedad);
-        tokenRepository.deleteOldUsedTokens(fechaLimite);
-
-        log.info("Limpieza de tokens usados antiguos completada");
+        if (tokenCount >= 5) { // Máximo 5 solicitudes por IP en el período
+            log.warn("⚠️ Rate limit excedido para IP: {}", ip);
+            throw new BusinessException("Demasiadas solicitudes desde esta dirección. Intenta nuevamente en " +
+                    rateLimitMinutes + " minutos");
+        }
     }
 
-    public boolean puedeGenerarToken(String email) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElse(null);
+    private void verificarLimiteTokensPorUsuario(Long usuarioId) {
+        List<PasswordResetTokens> tokensActivos = passwordResetTokensRepository
+                .findTokensValidosPorUsuario(usuarioId, LocalDateTime.now());
 
-        if (usuario == null || !usuario.getActivo()) {
-            return false;
+        if (tokensActivos.size() >= maxTokensPerUser) {
+            log.warn("⚠️ Límite de tokens activos excedido para usuario ID: {}", usuarioId);
+            throw new BusinessException("Ya tienes tokens de reset activos. Usa uno existente o espera a que expiren");
+        }
+    }
+
+    private void desactivarTokensActivosDeUsuario(Long usuarioId) {
+        log.info("🔄 Desactivando tokens activos para usuario ID: {}", usuarioId);
+
+        List<PasswordResetTokens> tokensActivos = passwordResetTokensRepository
+                .findTokensActivosPorUsuario(usuarioId);
+
+        for (PasswordResetTokens token : tokensActivos) {
+            token.marcarComoInactivo();
         }
 
-        long tokensActivos = tokenRepository.countValidTokensByUsuario(usuario, LocalDateTime.now());
-        return tokensActivos < maxTokensPerUser;
+        if (!tokensActivos.isEmpty()) {
+            passwordResetTokensRepository.saveAll(tokensActivos);
+            log.info("✅ {} tokens anteriores desactivados", tokensActivos.size());
+        }
     }
 
-    private String generarToken() {
-        // Generar token seguro usando UUID + timestamp + random
+    private String generarTokenSeguro() {
+        // Combinar UUID con números aleatorios para mayor seguridad
         String uuid = UUID.randomUUID().toString().replace("-", "");
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String random = String.valueOf(new SecureRandom().nextInt(10000));
 
-        return uuid + timestamp + random;
+        SecureRandom random = new SecureRandom();
+        StringBuilder builder = new StringBuilder();
+
+        // Agregar 8 caracteres aleatorios adicionales
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        for (int i = 0; i < 8; i++) {
+            builder.append(chars.charAt(random.nextInt(chars.length())));
+        }
+
+        return uuid + builder.toString();
     }
 
-    private PasswordResetTokensDTO convertirADTO(PasswordResetTokens token) {
-        PasswordResetTokensDTO dto = new PasswordResetTokensDTO();
-        dto.setId(token.getId());
-        dto.setUsuarioId(token.getUsuario().getUsuarioId());
-        dto.setToken(token.getToken());
-        dto.setFechaExpiracion(token.getFechaExpiracion());
-        dto.setUsado(token.getUsado());
-        dto.setCreatedat(token.getCreatedat());
+    private void validarNuevaPassword(String password) {
+        if (password == null || password.trim().isEmpty()) {
+            throw new BusinessException("La nueva contraseña no puede estar vacía");
+        }
 
-        // Información del usuario
-        Usuario usuario = token.getUsuario();
-        dto.setUsuarioNombre(usuario.getUsuarioNombre());
-        dto.setUsuarioEmail(usuario.getEmail());
+        if (password.length() < 6) {
+            throw new BusinessException("La contraseña debe tener al menos 6 caracteres");
+        }
 
-        return dto;
+        if (password.length() > 100) {
+            throw new BusinessException("La contraseña es demasiado larga");
+        }
+
+        // Validar que contenga al menos una letra y un número
+        if (!password.matches(".*[a-zA-Z].*") || !password.matches(".*[0-9].*")) {
+            throw new BusinessException("La contraseña debe contener al menos una letra y un número");
+        }
+    }
+
+    // Métodos para estadísticas y monitoreo
+    public List<Object[]> obtenerPatronesDeUso() {
+        return passwordResetTokensRepository.findPatronesDeUso();
+    }
+
+    public List<Object[]> obtenerEstadisticasPorUserAgent() {
+        return passwordResetTokensRepository.findEstadisticasPorUserAgent();
+    }
+
+    public Double obtenerPromedioIntentos() {
+        return passwordResetTokensRepository.findPromedioIntentosPorToken();
     }
 }

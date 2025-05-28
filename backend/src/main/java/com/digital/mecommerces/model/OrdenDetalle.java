@@ -1,61 +1,96 @@
 package com.digital.mecommerces.model;
 
 import jakarta.persistence.*;
+import lombok.extern.slf4j.Slf4j;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "ordendetalle")
+@Slf4j
 public class OrdenDetalle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "detalleid") // CORREGIDO: era "detalle_id"
+    @Column(name = "detalleid", nullable = false)
     private Long detalleId;
 
-    @Column(name = "ordenid", nullable = false) // CORREGIDO: era "orden_id"
-    private Long ordenId;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ordenid", insertable = false, updatable = false)
+    @JoinColumn(name = "ordenid", nullable = false)
     private Orden orden;
 
-    @Column(name = "productoid", nullable = false) // CORREGIDO: era "producto_id"
-    private Long productoId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "productoid", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "productoid", nullable = false)
     private Producto producto;
 
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
-    @Column(name = "preciounitario", nullable = false) // CORREGIDO: era "precio_unitario"
+    @Column(name = "preciounitario", nullable = false)
     private Double precioUnitario;
 
-    @Column(name = "subtotal", nullable = false)
-    private Double subtotal;
+    @Column(name = "fechacreacion")
+    private LocalDateTime fechaCreacion;
 
-    @Column(name = "notas", length = 255)
-    private String notas;
+    @Column(name = "fechamodificacion")
+    private LocalDateTime fechaModificacion;
 
-    @Column(name = "personalizado")
-    private Boolean personalizado = false;
+    @Column(name = "descuento")
+    private Double descuento = 0.0;
 
-    @Column(name = "opcionespersonalizacion", columnDefinition = "TEXT") // CORREGIDO: era "opciones_personalizacion"
-    private String opcionesPersonalizacion;
+    @Column(name = "impuesto")
+    private Double impuesto = 0.0;
 
-    // Constructor vacío
-    public OrdenDetalle() {}
-
-    // Constructor con parámetros
-    public OrdenDetalle(Producto producto, Integer cantidad, Double precioUnitario) {
-        this.producto = producto;
-        this.productoId = producto.getProductoId();
-        this.cantidad = cantidad;
-        this.precioUnitario = precioUnitario;
-        this.subtotal = cantidad * precioUnitario;
+    // Constructor vacío requerido por JPA
+    public OrdenDetalle() {
+        this.fechaCreacion = LocalDateTime.now();
+        this.fechaModificacion = LocalDateTime.now();
+        this.descuento = 0.0;
+        this.impuesto = 0.0;
     }
 
-    // Getters y Setters
+    // Constructor optimizado con producto y cantidad
+    public OrdenDetalle(Producto producto, Integer cantidad) {
+        this();
+        this.producto = producto;
+        this.cantidad = cantidad;
+
+        if (producto != null) {
+            this.precioUnitario = producto.getPrecio();
+            log.debug("✅ OrdenDetalle creado: {} x{} - ${}",
+                    producto.getProductoNombre(), cantidad, this.precioUnitario);
+        } else {
+            log.warn("⚠️ OrdenDetalle creado con producto null");
+        }
+    }
+
+    // Constructor completo optimizado
+    public OrdenDetalle(Producto producto, Integer cantidad, Orden orden) {
+        this(producto, cantidad);
+        this.orden = orden;
+    }
+
+    // Métodos de gestión optimizados
+    @PreUpdate
+    public void preUpdate() {
+        this.fechaModificacion = LocalDateTime.now();
+        log.debug("🔄 OrdenDetalle actualizado - ID: {}", this.detalleId);
+    }
+
+    // Métodos de utilidad optimizados
+    public Double getSubtotal() {
+        if (cantidad == null || precioUnitario == null) {
+            return 0.0;
+        }
+        Double subtotalSinDescuento = cantidad * precioUnitario;
+        Double montoDescuento = (descuento != null) ? subtotalSinDescuento * (descuento / 100) : 0.0;
+        Double subtotalConDescuento = subtotalSinDescuento - montoDescuento;
+        Double montoImpuesto = (impuesto != null) ? subtotalConDescuento * (impuesto / 100) : 0.0;
+        
+        return subtotalConDescuento + montoImpuesto;
+    }
+
+    // Getters y Setters optimizados
     public Long getDetalleId() {
         return detalleId;
     }
@@ -64,31 +99,12 @@ public class OrdenDetalle {
         this.detalleId = detalleId;
     }
 
-    public Long getOrdenId() {
-        return ordenId;
-    }
-
-    public void setOrdenId(Long ordenId) {
-        this.ordenId = ordenId;
-    }
-
     public Orden getOrden() {
         return orden;
     }
 
     public void setOrden(Orden orden) {
         this.orden = orden;
-        if (orden != null) {
-            this.ordenId = orden.getOrdenId();
-        }
-    }
-
-    public Long getProductoId() {
-        return productoId;
-    }
-
-    public void setProductoId(Long productoId) {
-        this.productoId = productoId;
     }
 
     public Producto getProducto() {
@@ -97,9 +113,13 @@ public class OrdenDetalle {
 
     public void setProducto(Producto producto) {
         this.producto = producto;
+
         if (producto != null) {
-            this.productoId = producto.getProductoId();
+            // Actualizar precio automáticamente
+            this.precioUnitario = producto.getPrecio();
         }
+
+        this.fechaModificacion = LocalDateTime.now();
     }
 
     public Integer getCantidad() {
@@ -107,8 +127,13 @@ public class OrdenDetalle {
     }
 
     public void setCantidad(Integer cantidad) {
-        this.cantidad = cantidad;
-        this.subtotal = cantidad * this.precioUnitario;
+        if (cantidad != null && cantidad > 0) {
+            this.cantidad = cantidad;
+            this.fechaModificacion = LocalDateTime.now();
+            log.debug("🔢 Cantidad actualizada para detalle {}: {}", this.detalleId, cantidad);
+        } else {
+            log.warn("⚠️ Intento de establecer cantidad inválida: {}", cantidad);
+        }
     }
 
     public Double getPrecioUnitario() {
@@ -117,38 +142,53 @@ public class OrdenDetalle {
 
     public void setPrecioUnitario(Double precioUnitario) {
         this.precioUnitario = precioUnitario;
-        this.subtotal = this.cantidad * precioUnitario;
+        this.fechaModificacion = LocalDateTime.now();
     }
 
-    public Double getSubtotal() {
-        return subtotal;
+    public LocalDateTime getFechaCreacion() {
+        return fechaCreacion;
     }
 
-    public void setSubtotal(Double subtotal) {
-        this.subtotal = subtotal;
+    public void setFechaCreacion(LocalDateTime fechaCreacion) {
+        this.fechaCreacion = fechaCreacion;
     }
 
-    public String getNotas() {
-        return notas;
+    public LocalDateTime getFechaModificacion() {
+        return fechaModificacion;
     }
 
-    public void setNotas(String notas) {
-        this.notas = notas;
+    public void setFechaModificacion(LocalDateTime fechaModificacion) {
+        this.fechaModificacion = fechaModificacion;
     }
 
-    public Boolean getPersonalizado() {
-        return personalizado;
+    public Double getDescuento() {
+        return descuento;
     }
 
-    public void setPersonalizado(Boolean personalizado) {
-        this.personalizado = personalizado;
+    public void setDescuento(Double descuento) {
+        this.descuento = descuento;
+        this.fechaModificacion = LocalDateTime.now();
     }
 
-    public String getOpcionesPersonalizacion() {
-        return opcionesPersonalizacion;
+    public Double getImpuesto() {
+        return impuesto;
     }
 
-    public void setOpcionesPersonalizacion(String opcionesPersonalizacion) {
-        this.opcionesPersonalizacion = opcionesPersonalizacion;
+    public void setImpuesto(Double impuesto) {
+        this.impuesto = impuesto;
+        this.fechaModificacion = LocalDateTime.now();
+    }
+
+    @Override
+    public String toString() {
+        return "OrdenDetalle{" +
+                "detalleId=" + detalleId +
+                ", producto=" + (producto != null ? producto.getProductoNombre() : "null") +
+                ", cantidad=" + cantidad +
+                ", precioUnitario=" + precioUnitario +
+                ", subtotal=" + getSubtotal() +
+                ", descuento=" + descuento +
+                ", impuesto=" + impuesto +
+                '}';
     }
 }

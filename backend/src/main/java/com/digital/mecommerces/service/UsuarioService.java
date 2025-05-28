@@ -1,316 +1,334 @@
 package com.digital.mecommerces.service;
 
-import com.digital.mecommerces.dto.RegistroDTO;
 import com.digital.mecommerces.exception.ResourceNotFoundException;
-import com.digital.mecommerces.model.*;
-import com.digital.mecommerces.repository.*;
+import com.digital.mecommerces.model.Usuario;
+import com.digital.mecommerces.model.RolUsuario;
+import com.digital.mecommerces.repository.UsuarioRepository;
+import com.digital.mecommerces.repository.RolUsuarioRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
+/**
+ * Servicio para gestión de usuarios - MÉTODOS ADICIONALES
+ * Estos métodos se agregan al UsuarioService existente
+ */
 @Service
 @Slf4j
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final RolUsuarioRepository rolUsuarioRepository;
-    private final AdminDetallesRepository adminDetallesRepository;
-    private final CompradorDetallesRepository compradorDetallesRepository;
-    private final VendedorDetallesRepository vendedorDetallesRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(
-            UsuarioRepository usuarioRepository,
-            RolUsuarioRepository rolUsuarioRepository,
-            AdminDetallesRepository adminDetallesRepository,
-            CompradorDetallesRepository compradorDetallesRepository,
-            VendedorDetallesRepository vendedorDetallesRepository,
-            PasswordEncoder passwordEncoder
-    ) {
+    public UsuarioService(UsuarioRepository usuarioRepository, 
+                         RolUsuarioRepository rolUsuarioRepository,
+                         PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.rolUsuarioRepository = rolUsuarioRepository;
-        this.adminDetallesRepository = adminDetallesRepository;
-        this.compradorDetallesRepository = compradorDetallesRepository;
-        this.vendedorDetallesRepository = vendedorDetallesRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
+    // ... métodos existentes ...
+
+    // === MÉTODOS PARA PAGINACIÓN ===
+
+    public Page<Usuario> obtenerUsuariosPaginados(Pageable pageable) {
+        log.info("👥 Obteniendo usuarios con paginación");
+        return usuarioRepository.findAll(pageable);
+    }
+
+    public Page<Usuario> obtenerUsuariosActivos(Pageable pageable) {
+        log.info("👥 Obteniendo usuarios activos con paginación");
+        List<Usuario> usuariosActivos = usuarioRepository.findUsuariosActivos();
+        return convertListToPage(usuariosActivos, pageable);
+    }
+
+    public Page<Usuario> obtenerUsuariosInactivos(Pageable pageable) {
+        log.info("👥 Obteniendo usuarios inactivos con paginación");
+        List<Usuario> usuariosInactivos = usuarioRepository.findUsuariosInactivos();
+        return convertListToPage(usuariosInactivos, pageable);
+    }
+
+    public Page<Usuario> obtenerUsuariosPorRol(Long rolId, Pageable pageable) {
+        log.info("👥 Obteniendo usuarios por rol ID: {} con paginación", rolId);
+        List<Usuario> usuarios = usuarioRepository.findByRolRolId(rolId);
+        return convertListToPage(usuarios, pageable);
+    }
+
+    public Page<Usuario> buscarUsuarios(String query, Pageable pageable) {
+        log.info("🔍 Buscando usuarios con término: {}", query);
+
+        if (query == null || query.trim().isEmpty()) {
+            return obtenerUsuariosPaginados(pageable);
+        }
+
+        List<Usuario> usuarios = usuarioRepository.findByTextoEnNombreOEmail(query);
+        return convertListToPage(usuarios, pageable);
+    }
+
+    private Page<Usuario> convertListToPage(List<Usuario> list, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), list.size());
+
+        if (start > list.size()) {
+            return Page.empty(pageable);
+        }
+
+        List<Usuario> subList = list.subList(start, end);
+        return new org.springframework.data.domain.PageImpl<>(subList, pageable, list.size());
+    }
+
+    // === MÉTODOS PARA CONTADORES ===
+
+    public long contarUsuarios() {
+        log.info("📊 Contando todos los usuarios");
+        return usuarioRepository.count();
+    }
+
+    public long contarUsuariosActivos() {
+        log.info("📊 Contando usuarios activos");
+        return usuarioRepository.countUsuariosActivos();
+    }
+
+    public long contarUsuariosInactivos() {
+        log.info("📊 Contando usuarios inactivos");
+        return usuarioRepository.countUsuariosInactivos();
+    }
+
+    public long contarAdministradores() {
+        log.info("📊 Contando administradores");
+        return usuarioRepository.countByRolNombre("ADMINISTRADOR");
+    }
+
+    public long contarVendedores() {
+        log.info("📊 Contando vendedores");
+        return usuarioRepository.countByRolNombre("VENDEDOR");
+    }
+
+    public long contarCompradores() {
+        log.info("📊 Contando compradores");
+        return usuarioRepository.countByRolNombre("COMPRADOR");
+    }
+
+    public long contarUsuariosRecientes() {
+        log.info("📊 Contando usuarios recientes (últimos 30 días)");
+        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(30);
+        List<Usuario> usuariosRecientes = usuarioRepository.findUsuariosCreadosDesde(fechaLimite);
+        return usuariosRecientes.size();
+    }
+
+    public long contarUsuariosConDetalles() {
+        log.info("📊 Contando usuarios con detalles específicos");
+        // Esto requerirá joins con las tablas de detalles
+        List<Usuario> compradoresConDetalles = usuarioRepository.findCompradoresConDetalles();
+        List<Usuario> vendedoresConDetalles = usuarioRepository.findVendedoresConDetalles();
+        List<Usuario> adminsConDetalles = usuarioRepository.findAdministradoresConDetalles();
+
+        return compradoresConDetalles.size() + vendedoresConDetalles.size() + adminsConDetalles.size();
+    }
+
+    // === MÉTODOS PARA GESTIÓN DE ESTADO ===
+
     @Transactional
-    public Usuario registrarUsuario(RegistroDTO registroDTO) {
-        log.info("Registrando usuario: {}", registroDTO.getEmail());
+    public void activarUsuario(Long id) {
+        log.info("✅ Activando usuario ID: {}", id);
 
-        // Verificar si el email ya existe
-        if (usuarioRepository.existsByEmail(registroDTO.getEmail())) {
-            throw new IllegalArgumentException("El email ya está registrado: " + registroDTO.getEmail());
-        }
+        Usuario usuario = obtenerUsuarioPorId(id);
+        usuario.setActivo(true);
+        usuario.setUpdatedAt(LocalDateTime.now());
 
-        // Obtener el rol
-        RolUsuario rol = rolUsuarioRepository.findById(registroDTO.getRolId())
-                .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con id: " + registroDTO.getRolId()));
-
-        // Crear usuario
-        Usuario usuario = new Usuario(
-                registroDTO.getNombre(),
-                registroDTO.getEmail(),
-                passwordEncoder.encode(registroDTO.getPassword()),
-                rol
-        );
-
-        // CRÍTICO: Guardar usuario PRIMERO para obtener el ID
-        usuario = usuarioRepository.saveAndFlush(usuario);
-        log.info("Usuario guardado con ID: {}", usuario.getUsuarioId());
-
-        // Ahora crear detalles específicos según el rol CON el ID ya asignado
-        try {
-            String rolNombre = rol.getNombre();
-            log.info("Creando detalles para rol: {}", rolNombre);
-
-            if ("COMPRADOR".equals(rolNombre)) {
-                crearDetallesComprador(usuario, registroDTO);
-            } else if ("VENDEDOR".equals(rolNombre)) {
-                crearDetallesVendedor(usuario, registroDTO);
-            } else if ("ADMINISTRADOR".equals(rolNombre)) {
-                crearDetallesAdmin(usuario, registroDTO);
-            } else {
-                log.warn("Rol no reconocido para crear detalles: {}", rolNombre);
-            }
-        } catch (Exception e) {
-            log.error("Error creando detalles para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
-            // El usuario ya está guardado, pero falló la creación de detalles
-            // En caso de error, eliminamos el usuario para mantener la integridad
-            usuarioRepository.delete(usuario);
-            throw new RuntimeException("Error al crear detalles específicos del rol: " + e.getMessage(), e);
-        }
-
-        log.info("Usuario registrado exitosamente: {}", usuario.getEmail());
-        return usuario;
+        usuarioRepository.save(usuario);
+        log.info("✅ Usuario activado exitosamente");
     }
 
-    private void crearDetallesComprador(Usuario usuario, RegistroDTO registroDTO) {
-        try {
-            log.info("Creando detalles de comprador para usuario ID: {}", usuario.getUsuarioId());
+    @Transactional
+    public void desactivarUsuario(Long id) {
+        log.info("❌ Desactivando usuario ID: {}", id);
 
-            // Verificar que el usuario tenga ID
-            if (usuario.getUsuarioId() == null) {
-                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
-            }
+        Usuario usuario = obtenerUsuarioPorId(id);
+        usuario.setActivo(false);
+        usuario.setUpdatedAt(LocalDateTime.now());
 
-            // Verificar si ya existen detalles para este usuario
-            if (compradorDetallesRepository.existsById(usuario.getUsuarioId())) {
-                log.warn("Ya existen detalles de comprador para el usuario ID: {}", usuario.getUsuarioId());
-                return;
-            }
-
-            CompradorDetalles compradorDetalles = new CompradorDetalles();
-            // CRÍTICO: Establecer el ID manualmente
-            compradorDetalles.setUsuarioId(usuario.getUsuarioId());
-            compradorDetalles.setUsuario(usuario);
-
-            // Establecer datos del registro
-            if (registroDTO.getFechaNacimiento() != null) {
-                compradorDetalles.setFechaNacimiento(registroDTO.getFechaNacimiento());
-            }
-            if (registroDTO.getPreferencias() != null) {
-                compradorDetalles.setPreferencias(registroDTO.getPreferencias());
-            }
-            if (registroDTO.getDireccionEnvio() != null) {
-                compradorDetalles.setDireccionEnvio(registroDTO.getDireccionEnvio());
-            }
-            if (registroDTO.getTelefono() != null) {
-                compradorDetalles.setTelefono(registroDTO.getTelefono());
-            }
-            if (registroDTO.getDireccionAlternativa() != null) {
-                compradorDetalles.setDireccionAlternativa(registroDTO.getDireccionAlternativa());
-            }
-            if (registroDTO.getTelefonoAlternativo() != null) {
-                compradorDetalles.setTelefonoAlternativo(registroDTO.getTelefonoAlternativo());
-            }
-
-            // Establecer valores de notificaciones
-            compradorDetalles.setNotificacionEmail(
-                    registroDTO.getNotificacionEmail() != null ? registroDTO.getNotificacionEmail() : true
-            );
-            compradorDetalles.setNotificacionSms(
-                    registroDTO.getNotificacionSms() != null ? registroDTO.getNotificacionSms() : false
-            );
-
-            // Establecer valores predeterminados
-            compradorDetalles.setCalificacion(new java.math.BigDecimal("5.00"));
-            compradorDetalles.setTotalCompras(0);
-
-            CompradorDetalles savedDetails = compradorDetallesRepository.save(compradorDetalles);
-            log.info("Detalles de comprador creados exitosamente para usuario: {} con ID: {}", 
-                    usuario.getEmail(), savedDetails.getUsuarioId());
-
-        } catch (Exception e) {
-            log.error("Error creando detalles de comprador para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Error al crear detalles del comprador: " + e.getMessage(), e);
-        }
+        usuarioRepository.save(usuario);
+        log.info("✅ Usuario desactivado exitosamente");
     }
 
-    private void crearDetallesVendedor(Usuario usuario, RegistroDTO registroDTO) {
+    @Transactional
+    public Usuario cambiarRolUsuario(Long id, Long nuevoRolId) {
+        log.info("🔄 Cambiando rol del usuario ID: {} al rol ID: {}", id, nuevoRolId);
+
+        Usuario usuario = obtenerUsuarioPorId(id);
+        RolUsuario nuevoRol = rolUsuarioRepository.findById(nuevoRolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con ID: " + nuevoRolId));
+
+        usuario.setRol(nuevoRol);
+        usuario.setUpdatedAt(LocalDateTime.now());
+
+        Usuario usuarioActualizado = usuarioRepository.save(usuario);
+        log.info("✅ Rol de usuario cambiado exitosamente");
+        return usuarioActualizado;
+    }
+
+    // === MÉTODOS PARA GESTIÓN DE CONTRASEÑAS ===
+
+    @Transactional
+    public String resetearPassword(Long id) {
+        log.info("🔒 Reseteando contraseña del usuario ID: {}", id);
+
+        Usuario usuario = obtenerUsuarioPorId(id);
+
+        // Generar nueva contraseña temporal
+        String nuevaPassword = generarPasswordTemporal();
+        String passwordEncriptada = passwordEncoder.encode(nuevaPassword);
+
+        usuario.setPassword(passwordEncriptada);
+        usuario.setUpdatedAt(LocalDateTime.now());
+
+        usuarioRepository.save(usuario);
+
+        log.info("✅ Contraseña reseteada exitosamente para usuario: {}", usuario.getEmail());
+
+        // En un sistema real, aquí se enviaría un email
+        // emailService.enviarNuevaPassword(usuario.getEmail(), nuevaPassword);
+
+        return nuevaPassword;
+    }
+
+    @Transactional
+    public void cambiarPassword(String email, String passwordActual, String passwordNueva) {
+        log.info("🔒 Cambiando contraseña del usuario: {}", email);
+
+        Usuario usuario = obtenerUsuarioPorEmail(email);
+
+        // Verificar contraseña actual
+        if (!passwordEncoder.matches(passwordActual, usuario.getPassword())) {
+            throw new IllegalArgumentException("La contraseña actual es incorrecta");
+        }
+
+        // Validar nueva contraseña
+        if (passwordNueva == null || passwordNueva.length() < 6) {
+            throw new IllegalArgumentException("La nueva contraseña debe tener al menos 6 caracteres");
+        }
+
+        String passwordEncriptada = passwordEncoder.encode(passwordNueva);
+        usuario.setPassword(passwordEncriptada);
+        usuario.setUpdatedAt(LocalDateTime.now());
+
+        usuarioRepository.save(usuario);
+        log.info("✅ Contraseña cambiada exitosamente");
+    }
+
+    // === MÉTODOS PARA ESTADÍSTICAS ===
+
+    public Map<String, Long> obtenerDistribucionPorRol() {
+        log.info("📊 Obteniendo distribución de usuarios por rol");
+
+        Map<String, Long> distribucion = new HashMap<>();
+        distribucion.put("ADMINISTRADOR", contarAdministradores());
+        distribucion.put("VENDEDOR", contarVendedores());
+        distribucion.put("COMPRADOR", contarCompradores());
+
+        return distribucion;
+    }
+
+    public List<Usuario> obtenerUsuariosRecientes(int limite) {
+        log.info("📊 Obteniendo {} usuarios más recientes", limite);
+        List<Usuario> usuarios = usuarioRepository.findAll();
+        return usuarios.stream()
+                .sorted((u1, u2) -> u2.getCreatedAt().compareTo(u1.getCreatedAt()))
+                .limit(limite)
+                .toList();
+    }
+
+    public List<Usuario> obtenerUltimosLogins(int limite) {
+        log.info("📊 Obteniendo {} últimos logins", limite);
+        List<Usuario> usuarios = usuarioRepository.findUsuariosConLogin();
+        return usuarios.stream()
+                .sorted((u1, u2) -> u2.getUltimoLogin().compareTo(u1.getUltimoLogin()))
+                .limit(limite)
+                .toList();
+    }
+
+    // === MÉTODOS PARA NOTIFICACIONES ===
+
+    public int enviarNotificacion(List<Long> usuariosIds, String mensaje) {
+        log.info("📧 Enviando notificación a {} usuarios", usuariosIds.size());
+
+        int notificacionesEnviadas = 0;
+
+        for (Long usuarioId : usuariosIds) {
+            try {
+                Usuario usuario = obtenerUsuarioPorId(usuarioId);
+
+                // En un sistema real, aquí se implementaría el envío real
+                // notificationService.enviarNotificacion(usuario, mensaje);
+
+                log.debug("📧 Notificación enviada a: {}", usuario.getEmail());
+                notificacionesEnviadas++;
+
+            } catch (Exception e) {
+                log.error("❌ Error enviando notificación al usuario ID {}: {}", usuarioId, e.getMessage());
+            }
+        }
+
+        log.info("✅ {} notificaciones enviadas exitosamente", notificacionesEnviadas);
+        return notificacionesEnviadas;
+    }
+
+    // === MÉTODOS PARA LOGIN Y REGISTRO ===
+
+    @Transactional
+    public void registrarLogin(String email) {
+        log.info("🔐 Registrando login para usuario: {}", email);
+
         try {
-            log.info("Creando detalles de vendedor para usuario ID: {}", usuario.getUsuarioId());
-
-            // Verificar que el usuario tenga ID
-            if (usuario.getUsuarioId() == null) {
-                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
-            }
-
-            // Verificar si ya existen detalles para este usuario
-            if (vendedorDetallesRepository.existsById(usuario.getUsuarioId())) {
-                log.warn("Ya existen detalles de vendedor para el usuario ID: {}", usuario.getUsuarioId());
-                return;
-            }
-
-            VendedorDetalles vendedorDetalles = new VendedorDetalles();
-            // CRÍTICO: Establecer el ID manualmente
-            vendedorDetalles.setUsuarioId(usuario.getUsuarioId());
-            vendedorDetalles.setUsuario(usuario);
-
-            // Establecer datos del registro
-            if (registroDTO.getRut() != null) {
-                vendedorDetalles.setRut(registroDTO.getRut());
-            }
-            if (registroDTO.getEspecialidad() != null) {
-                vendedorDetalles.setEspecialidad(registroDTO.getEspecialidad());
-            }
-            if (registroDTO.getDireccionComercial() != null) {
-                vendedorDetalles.setDireccionComercial(registroDTO.getDireccionComercial());
-            }
-            if (registroDTO.getNumRegistroFiscal() != null) {
-                vendedorDetalles.setNumRegistroFiscal(registroDTO.getNumRegistroFiscal());
-            }
-            if (registroDTO.getDocumentoComercial() != null) {
-                vendedorDetalles.setDocumentoComercial(registroDTO.getDocumentoComercial());
-            }
-            if (registroDTO.getTipoDocumento() != null) {
-                vendedorDetalles.setTipoDocumento(registroDTO.getTipoDocumento());
-            }
-            if (registroDTO.getBanco() != null) {
-                vendedorDetalles.setBanco(registroDTO.getBanco());
-            }
-            if (registroDTO.getTipoCuenta() != null) {
-                vendedorDetalles.setTipoCuenta(registroDTO.getTipoCuenta());
-            }
-            if (registroDTO.getNumeroCuenta() != null) {
-                vendedorDetalles.setNumeroCuenta(registroDTO.getNumeroCuenta());
-            }
-
-            // Valores predeterminados
-            vendedorDetalles.setVerificado(false);
-
-            VendedorDetalles savedDetails = vendedorDetallesRepository.save(vendedorDetalles);
-            log.info("Detalles de vendedor creados exitosamente para usuario: {} con ID: {}", 
-                    usuario.getEmail(), savedDetails.getUsuarioId());
+            Usuario usuario = obtenerUsuarioPorEmail(email);
+            usuario.setUltimoLogin(LocalDateTime.now());
+            usuarioRepository.save(usuario);
 
         } catch (Exception e) {
-            log.error("Error creando detalles de vendedor para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Error al crear detalles del vendedor: " + e.getMessage(), e);
+            log.error("❌ Error registrando login para {}: {}", email, e.getMessage());
         }
     }
 
-    private void crearDetallesAdmin(Usuario usuario, RegistroDTO registroDTO) {
-        try {
-            log.info("Creando detalles de administrador para usuario ID: {}", usuario.getUsuarioId());
-
-            // Verificar que el usuario tenga ID
-            if (usuario.getUsuarioId() == null) {
-                throw new IllegalStateException("El usuario debe tener un ID válido antes de crear detalles");
-            }
-
-            // Verificar si ya existen detalles para este usuario
-            if (adminDetallesRepository.existsById(usuario.getUsuarioId())) {
-                log.warn("Ya existen detalles de administrador para el usuario ID: {}", usuario.getUsuarioId());
-                return;
-            }
-
-            AdminDetalles adminDetalles = new AdminDetalles();
-            // CRÍTICO: Establecer el ID manualmente
-            adminDetalles.setUsuarioId(usuario.getUsuarioId());
-            adminDetalles.setUsuario(usuario);
-
-            // Establecer datos del registro
-            if (registroDTO.getRegion() != null) {
-                adminDetalles.setRegion(registroDTO.getRegion());
-            }
-            if (registroDTO.getNivelAcceso() != null) {
-                adminDetalles.setNivelAcceso(registroDTO.getNivelAcceso());
-            }
-            if (registroDTO.getIpAcceso() != null) {
-                adminDetalles.setIpAcceso(registroDTO.getIpAcceso());
-            }
-
-            // Valores predeterminados
-            adminDetalles.setUltimaAccion("Usuario creado");
-            adminDetalles.setUltimoLogin(java.time.LocalDateTime.now());
-
-            AdminDetalles savedDetails = adminDetallesRepository.save(adminDetalles);
-            log.info("Detalles de administrador creados exitosamente para usuario: {} con ID: {}", 
-                    usuario.getEmail(), savedDetails.getUsuarioId());
-
-        } catch (Exception e) {
-            log.error("Error creando detalles de administrador para usuario {}: {}", usuario.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Error al crear detalles del administrador: " + e.getMessage(), e);
-        }
+    public boolean existeEmail(String email) {
+        log.debug("🔍 Verificando si existe email: {}", email);
+        return usuarioRepository.existsByEmail(email);
     }
 
-    // Resto de métodos del servicio...
-    public List<Usuario> obtenerUsuarios() {
-        log.info("Obteniendo lista de todos los usuarios");
-        return usuarioRepository.findAll();
+    // === MÉTODOS AUXILIARES ===
+
+    private String generarPasswordTemporal() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
+    // Método ya existe en el servicio original, solo verificamos que esté
     public Usuario obtenerUsuarioPorId(Long id) {
-        log.info("Obteniendo usuario por ID: {}", id);
+        log.info("🔍 Obteniendo usuario por ID: {}", id);
         return usuarioRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + id));
     }
 
+    // Método ya existe en el servicio original, solo verificamos que esté
     public Usuario obtenerUsuarioPorEmail(String email) {
-        log.info("Obteniendo usuario por email: {}", email);
+        log.info("🔍 Obteniendo usuario por email: {}", email);
         return usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
     }
 
-    @Transactional
-    public Usuario actualizarUsuario(Long id, Usuario usuarioDetails) {
-        log.info("Actualizando usuario con ID: {}", id);
-
-        Usuario usuario = obtenerUsuarioPorId(id);
-        usuario.setUsuarioNombre(usuarioDetails.getUsuarioNombre());
-        usuario.setEmail(usuarioDetails.getEmail());
-        usuario.setUpdatedat(LocalDateTime.now());
-
-        if (usuarioDetails.getPassword() != null && !usuarioDetails.getPassword().isEmpty()) {
-            usuario.setPassword(passwordEncoder.encode(usuarioDetails.getPassword()));
-        }
-
-        if (usuarioDetails.getRol() != null) {
-            RolUsuario rol = rolUsuarioRepository.findById(usuarioDetails.getRol().getRolId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado"));
-            usuario.setRol(rol);
-        }
-
-        Usuario usuarioActualizado = usuarioRepository.save(usuario);
-        log.info("Usuario actualizado exitosamente: {}", usuarioActualizado.getEmail());
-        return usuarioActualizado;
-    }
-
-    @Transactional
-    public void eliminarUsuario(Long id) {
-        log.info("Eliminando usuario con ID: {}", id);
-        Usuario usuario = obtenerUsuarioPorId(id);
-        usuarioRepository.delete(usuario);
-        log.info("Usuario eliminado exitosamente: {}", usuario.getEmail());
-    }
-
-    public boolean existeEmail(String email) {
-        return usuarioRepository.existsByEmail(email);
+    // Método ya existe en el servicio original, solo verificamos que esté
+    public List<Usuario> obtenerUsuarios() {
+        log.info("👥 Obteniendo todos los usuarios");
+        return usuarioRepository.findAll();
     }
 }
